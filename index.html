@@ -40,7 +40,7 @@
       <div class="tab" onclick="switchTab('search')">🔍 查詢帳目</div>
     </div>
     
-    <!-- 新增帳目 -->
+ <!-- 新增帳目 -->
     <div id="addView" class="view-section active">
       <label>📅 日期</label>
       <input type="date" id="dateInput">
@@ -60,11 +60,13 @@
         <option value="固定支出">固定支出 (不押日期)</option>
       </select>
       
-      <label>📝 項目說明</label>
-      <input type="text" id="itemInput" placeholder="例如：晚餐石二鍋">
-      
+      <!-- 👇 金額移到上面來了 👇 -->
       <label>💰 金額 (元)</label>
       <input type="number" id="amountInput" placeholder="0" inputmode="numeric">
+      
+      <!-- 👇 項目說明移到下面 👇 -->
+      <label>📝 項目說明</label>
+      <input type="text" id="itemInput" placeholder="例如：晚餐石二鍋">
       
       <button onclick="submitData()">新增帳目</button>
       <div class="loading" id="addLoading">⏳ 資料寫入中...</div>
@@ -89,9 +91,8 @@
     document.getElementById('dateInput').valueAsDate = new Date();
 
     // 🔴 記得填入你的 API 網址！
-    const apiUrl = "https://script.google.com/macros/library/d/152wrecZIAOClNjcXusdeZx2fQ6l_Wqpx62y1tuzrLd-g4f4B_xryuMB6/4";
+    const apiUrl = "https://script.google.com/macros/s/AKfycbxvVEOlqWPu-MraLhOcOp2OkAX0zD5tOLJFwlbHkqtWQAu9MRBh4I3ek4U9yn0jfevl/exec";
     
-    // 全域變數存放手機裡的帳本資料
     let localLedgerData = [];
 
     function switchTab(tabName) {
@@ -104,7 +105,6 @@
       } else {
         document.querySelectorAll('.tab')[1].classList.add('active');
         document.getElementById('searchView').classList.add('active');
-        // 切換過來時，檢查有沒有之前存的資料
         loadLocalData(); 
       }
     }
@@ -129,7 +129,6 @@
           alert("✅ 記帳成功！");
           document.getElementById('itemInput').value = '';
           document.getElementById('amountInput').value = '';
-          // 溫馨提醒：因為新增了一筆資料，可以提示使用者去同步
           document.getElementById('syncStatus').innerText = "⚠️ 雲端有新帳目，建議同步更新";
         } else alert("❌ 發生錯誤：" + res.message);
       })
@@ -137,14 +136,17 @@
       .finally(() => loading.style.display = 'none');
     }
 
-    // ======== 新增：從雲端下載所有資料 (可能需要幾秒鐘) ========
-function syncData() {
+    // ======== 更新：計算並顯示同步耗時 ========
+    function syncData() {
       const loading = document.getElementById('searchLoading');
       const statusText = document.getElementById('syncStatus');
       
       loading.style.display = 'block';
       statusText.innerText = "同步中...";
       document.getElementById('resultBox').innerHTML = ''; 
+
+      // 1. 記錄開始同步的時間點
+      const startTime = performance.now();
 
       fetch(apiUrl, {
         method: "POST",
@@ -155,28 +157,28 @@ function syncData() {
         body: JSON.stringify({ action: "sync" })
       })
       .then(res => {
-        // 抓出真實的 HTTP 狀態碼
         if (!res.ok) throw new Error("伺服器回應錯誤，狀態碼: " + res.status);
-        return res.text(); // 先轉成純文字，避免解析 JSON 失敗
+        return res.json(); 
       })
-      .then(text => {
-        try {
-          const res = JSON.parse(text);
-          if (res.status === 'success') {
-            localStorage.setItem('myLedgerData', JSON.stringify(res.data));
-            localStorage.setItem('myLedgerLastSync', new Date().toLocaleString());
-            alert("✅ 同步完成！共下載 " + res.data.length + " 筆資料。");
-            loadLocalData(); 
-          } else {
-            alert("❌ 同步錯誤：" + res.message);
-          }
-        } catch (e) {
-          // 如果 Google 回傳的不是 JSON（例如系統錯誤畫面或權限擋板），會顯示在這裡
-          alert("❌ 嚴重錯誤！後端回傳了無法解析的內容。\n請截圖這段文字：\n" + text.substring(0, 150));
+      .then(res => {
+        if (res.status === 'success') {
+          // 2. 記錄結束同步的時間點，並計算耗時 (毫秒轉秒)
+          const endTime = performance.now();
+          const duration = ((endTime - startTime) / 1000).toFixed(1); // 取小數點後 1 位
+
+          localStorage.setItem('myLedgerData', JSON.stringify(res.data));
+          
+          // 3. 將耗時資訊一起存起來
+          const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${res.data.length} 筆資料，耗時 ${duration} 秒)`;
+          localStorage.setItem('myLedgerSyncInfo', syncInfo);
+          
+          alert(`✅ 同步完成！共下載 ${res.data.length} 筆資料，耗時 ${duration} 秒。`);
+          loadLocalData(); 
+        } else {
+          alert("❌ 同步錯誤：" + res.message);
         }
       })
       .catch(err => {
-        // 顯示真正的網路錯誤訊息
         alert("❌ 真正的網路/系統錯誤是：\n" + err.message);
       })
       .finally(() => {
@@ -184,27 +186,27 @@ function syncData() {
       });
     }
 
-    // ======== 新增：讀取手機裡的資料 ========
+    // ======== 更新：讀取並顯示包含耗時的同步資訊 ========
     function loadLocalData() {
       const storedData = localStorage.getItem('myLedgerData');
-      const lastSync = localStorage.getItem('myLedgerLastSync');
+      const syncInfo = localStorage.getItem('myLedgerSyncInfo');
       const statusText = document.getElementById('syncStatus');
 
-      if (storedData) {
+      if (storedData && syncInfo) {
         localLedgerData = JSON.parse(storedData);
-        statusText.innerText = "上次同步時間：\n" + lastSync + "\n(共有 " + localLedgerData.length + " 筆資料可在手機秒搜)";
+        // 直接顯示剛剛存好的詳細資訊 (包含時間與耗時)
+        statusText.innerText = syncInfo; 
       } else {
         statusText.innerText = "尚未同步，請點擊上方按鈕下載資料";
       }
     }
 
-    // ======== 修改：在手機端「瞬間」搜尋 ========
-    function filterLocalData() {
+   function filterLocalData() {
       const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
       const resultBox = document.getElementById('resultBox');
       
       if (!keyword) {
-        resultBox.innerHTML = ''; // 沒打字就清空畫面
+        resultBox.innerHTML = ''; 
         return;
       }
       
@@ -213,13 +215,34 @@ function syncData() {
         return;
       }
 
-      // 從已經下載的 localLedgerData 陣列中篩選
-      const filteredResults = localLedgerData.filter(item => {
+      // 1. 先篩選出符合關鍵字的資料
+      let filteredResults = localLedgerData.filter(item => {
         return item.detail.toLowerCase().includes(keyword) || 
                item.amount.toLowerCase().includes(keyword);
       });
 
-      // 渲染畫面
+      // 2. 新增：針對篩選結果進行「由新到舊」排序
+      filteredResults.sort((a, b) => {
+        // 建立一個計算日期分數的機制，分數越高代表時間越新 (例如：1150305 > 1141201)
+        function getDateScore(obj) {
+          // 優先嘗試從 detail 抓取精確日期 (例如："115/03/05 晚餐")
+          const dateMatch = obj.detail.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
+          if (dateMatch) {
+            return parseInt(dateMatch[1]) * 10000 + parseInt(dateMatch[2]) * 100 + parseInt(dateMatch[3]);
+          }
+          // 若無精確日期(如固定支出)，則從 month 欄位抓取 (例如："115年 3月")
+          const monthMatch = obj.month.match(/(\d+)年\s*(\d+)月/);
+          if (monthMatch) {
+            return parseInt(monthMatch[1]) * 10000 + parseInt(monthMatch[2]) * 100; // 預設視為該月初
+          }
+          return 0; 
+        }
+        
+        // b 的分數減掉 a 的分數 = 分數大(越新)的排在最前面
+        return getDateScore(b) - getDateScore(a);
+      });
+
+      // 3. 渲染到畫面上
       if (filteredResults.length === 0) {
         resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
       } else {
@@ -236,6 +259,7 @@ function syncData() {
         resultBox.innerHTML = html;
       }
     }
+  </script>
   </script>
 </body>
 </html>
