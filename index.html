@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>我的記帳本</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
+    .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    
+    .tabs { display: flex; margin-bottom: 20px; background: #eee; border-radius: 8px; overflow: hidden; }
+    .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
+    .tab.active { background: #007AFF; color: white; }
+    
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+
+    label { display: block; margin-top: 15px; font-weight: bold; color: #555; font-size: 14px; }
+    input, select { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; background: #fafafa; }
+    input:focus, select:focus { outline: none; border-color: #007AFF; background: white; }
+    
+    button { width: 100%; padding: 14px; background: #007AFF; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 25px; cursor: pointer; transition: 0.2s; }
+    button:active { transform: scale(0.98); }
+    button.sync-btn { background: #FF9500; margin-top: 10px; } /* 同步按鈕改橘色 */
+
+    .loading { display: none; text-align: center; margin-top: 15px; color: #666; font-size: 14px; }
+    
+    .result-box { margin-top: 20px; max-height: 400px; overflow-y: auto; }
+    .result-item { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 14px; }
+    .result-amount { font-weight: bold; color: #E02020; font-size: 16px; margin-top: 5px; }
+    .result-month { font-size: 12px; color: #888; margin-bottom: 4px; }
+    
+    .sync-status { font-size: 12px; color: #888; text-align: center; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('add')">✏️ 新增帳目</div>
+      <div class="tab" onclick="switchTab('search')">🔍 查詢帳目</div>
+    </div>
+    
+    <!-- 新增帳目 -->
+    <div id="addView" class="view-section active">
+      <label>📅 日期</label>
+      <input type="date" id="dateInput">
+      
+      <label>🏷️ 分類</label>
+      <select id="categoryInput">
+        <option value="食品餐飲">食品餐飲</option>
+        <option value="治裝行頭">治裝行頭</option>
+        <option value="居家物業">居家物業</option>
+        <option value="行車交通">行車交通</option>
+        <option value="教育學習">教育學習</option>
+        <option value="休閒娛樂">休閒娛樂</option>
+        <option value="醫療保健">醫療保健</option>
+        <option value="人情往來">人情往來</option>
+        <option value="其他雜項">其他雜項</option>
+        <option value="婦嬰用品">婦嬰用品</option>
+        <option value="固定支出">固定支出 (不押日期)</option>
+      </select>
+      
+      <label>📝 項目說明</label>
+      <input type="text" id="itemInput" placeholder="例如：晚餐石二鍋">
+      
+      <label>💰 金額 (元)</label>
+      <input type="number" id="amountInput" placeholder="0" inputmode="numeric">
+      
+      <button onclick="submitData()">新增帳目</button>
+      <div class="loading" id="addLoading">⏳ 資料寫入中...</div>
+    </div>
+
+    <!-- 查詢帳目 -->
+    <div id="searchView" class="view-section">
+      <label>🔍 萬用搜尋 (即時篩選)</label>
+      <!-- 注意：這裡拿掉了搜尋按鈕，改成打字時自動觸發 oninput -->
+      <input type="text" id="searchInput" placeholder="輸入日期、品名或金額..." oninput="filterLocalData()">
+      
+      <button class="sync-btn" onclick="syncData()">🔄 從雲端同步最新帳本</button>
+      <div class="sync-status" id="syncStatus">尚未同步資料</div>
+      
+      <div class="loading" id="searchLoading">⏳ 正在從雲端下載所有帳本，請稍候...</div>
+      
+      <div class="result-box" id="resultBox"></div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('dateInput').valueAsDate = new Date();
+
+    // 🔴 記得填入你的 API 網址！
+    const apiUrl = "https://script.google.com/macros/library/d/152wrecZIAOClNjcXusdeZx2fQ6l_Wqpx62y1tuzrLd-g4f4B_xryuMB6/4";
+    
+    // 全域變數存放手機裡的帳本資料
+    let localLedgerData = [];
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+      
+      if (tabName === 'add') {
+        document.querySelectorAll('.tab')[0].classList.add('active');
+        document.getElementById('addView').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab')[1].classList.add('active');
+        document.getElementById('searchView').classList.add('active');
+        // 切換過來時，檢查有沒有之前存的資料
+        loadLocalData(); 
+      }
+    }
+
+    function submitData() {
+      const loading = document.getElementById('addLoading');
+      const data = {
+        action: "add",
+        date: document.getElementById('dateInput').value,
+        category: document.getElementById('categoryInput').value,
+        item: document.getElementById('itemInput').value,
+        amount: document.getElementById('amountInput').value
+      };
+
+      if (!data.item || !data.amount) return alert("請填寫項目與金額！");
+
+      loading.style.display = 'block';
+      fetch(apiUrl, { method: "POST", body: JSON.stringify(data) })
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === 'success') {
+          alert("✅ 記帳成功！");
+          document.getElementById('itemInput').value = '';
+          document.getElementById('amountInput').value = '';
+          // 溫馨提醒：因為新增了一筆資料，可以提示使用者去同步
+          document.getElementById('syncStatus').innerText = "⚠️ 雲端有新帳目，建議同步更新";
+        } else alert("❌ 發生錯誤：" + res.message);
+      })
+      .catch(err => alert("網路錯誤"))
+      .finally(() => loading.style.display = 'none');
+    }
+
+    // ======== 新增：從雲端下載所有資料 (可能需要幾秒鐘) ========
+function syncData() {
+      const loading = document.getElementById('searchLoading');
+      const statusText = document.getElementById('syncStatus');
+      
+      loading.style.display = 'block';
+      statusText.innerText = "同步中...";
+      document.getElementById('resultBox').innerHTML = ''; 
+
+      fetch(apiUrl, {
+        method: "POST",
+        redirect: "follow",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({ action: "sync" })
+      })
+      .then(res => {
+        // 抓出真實的 HTTP 狀態碼
+        if (!res.ok) throw new Error("伺服器回應錯誤，狀態碼: " + res.status);
+        return res.text(); // 先轉成純文字，避免解析 JSON 失敗
+      })
+      .then(text => {
+        try {
+          const res = JSON.parse(text);
+          if (res.status === 'success') {
+            localStorage.setItem('myLedgerData', JSON.stringify(res.data));
+            localStorage.setItem('myLedgerLastSync', new Date().toLocaleString());
+            alert("✅ 同步完成！共下載 " + res.data.length + " 筆資料。");
+            loadLocalData(); 
+          } else {
+            alert("❌ 同步錯誤：" + res.message);
+          }
+        } catch (e) {
+          // 如果 Google 回傳的不是 JSON（例如系統錯誤畫面或權限擋板），會顯示在這裡
+          alert("❌ 嚴重錯誤！後端回傳了無法解析的內容。\n請截圖這段文字：\n" + text.substring(0, 150));
+        }
+      })
+      .catch(err => {
+        // 顯示真正的網路錯誤訊息
+        alert("❌ 真正的網路/系統錯誤是：\n" + err.message);
+      })
+      .finally(() => {
+        loading.style.display = 'none';
+      });
+    }
+
+    // ======== 新增：讀取手機裡的資料 ========
+    function loadLocalData() {
+      const storedData = localStorage.getItem('myLedgerData');
+      const lastSync = localStorage.getItem('myLedgerLastSync');
+      const statusText = document.getElementById('syncStatus');
+
+      if (storedData) {
+        localLedgerData = JSON.parse(storedData);
+        statusText.innerText = "上次同步時間：\n" + lastSync + "\n(共有 " + localLedgerData.length + " 筆資料可在手機秒搜)";
+      } else {
+        statusText.innerText = "尚未同步，請點擊上方按鈕下載資料";
+      }
+    }
+
+    // ======== 修改：在手機端「瞬間」搜尋 ========
+    function filterLocalData() {
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const resultBox = document.getElementById('resultBox');
+      
+      if (!keyword) {
+        resultBox.innerHTML = ''; // 沒打字就清空畫面
+        return;
+      }
+      
+      if (localLedgerData.length === 0) {
+        resultBox.innerHTML = '<div class="result-item">請先點擊「同步資料」下載帳本！</div>';
+        return;
+      }
+
+      // 從已經下載的 localLedgerData 陣列中篩選
+      const filteredResults = localLedgerData.filter(item => {
+        return item.detail.toLowerCase().includes(keyword) || 
+               item.amount.toLowerCase().includes(keyword);
+      });
+
+      // 渲染畫面
+      if (filteredResults.length === 0) {
+        resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
+      } else {
+        let html = '';
+        filteredResults.forEach(item => {
+          html += `
+            <div class="result-item">
+              <div class="result-month">📍 ${item.month}</div>
+              <div>${item.detail}</div>
+              <div class="result-amount">$ ${item.amount}</div>
+            </div>
+          `;
+        });
+        resultBox.innerHTML = html;
+      }
+    }
+  </script>
+</body>
+</html>
