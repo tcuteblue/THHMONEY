@@ -222,12 +222,9 @@
       </div>
       <select id="categoryInput"></select>
       
-      <!-- 🌟 金額與計算機按鈕 -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
-        <label style="margin-top: 0;">💰 金額 (元)</label>
-        <span style="font-size: 14px; color: #007AFF; cursor: pointer; font-weight: bold; background: #E3F2FD; padding: 4px 10px; border-radius: 12px;" onclick="openCalcModal()">🧮 打開計算機</span>
-      </div>
-      <input type="number" id="amountInput" placeholder="0" inputmode="numeric">
+     <label>💰 金額 (元)</label>
+      <!-- 加入 onclick 直接呼叫計算機，並加上 readonly 防止手機原生鍵盤彈出干擾 -->
+      <input type="text" id="amountInput" placeholder="🧮 點擊輸入金額..." onclick="openCalcModal()" readonly style="cursor: pointer; background: #F4F8FF; color: #007AFF; font-weight: bold; text-align: center; border-color: #007AFF;">
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">📝 項目說明</label>
