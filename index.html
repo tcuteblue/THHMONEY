@@ -567,20 +567,114 @@
       }
     }
 
-    // ======== 📊 Chart.js 圖表邏輯 ========
+    // ======== 📊 Chart.js 圖表邏輯 (修復月份排序與強制加入本月) ========
     function populateChartMonthSelect() {
-      if(localLedgerData.length === 0) return;
+      const currentTwYear = new Date().getFullYear() - 1911;
+      const currentMonthLabel = currentTwYear + "年 " + (new Date().getMonth() + 1) + "月";
+      
       const months = new Set(localLedgerData.map(item => item.month));
+      months.add(currentMonthLabel); // 強制加入本月，避免本月沒資料時選不到
+
       const select = document.getElementById('chartMonthSelect');
-      const currentVal = select.value;
+      const currentVal = select.value || currentMonthLabel; // 預設顯示本月
       
       select.innerHTML = '';
-      Array.from(months).sort((a, b) => b.localeCompare(a)).forEach(m => {
+      
+      // 🌟 修正：把中文字串轉換成純數字再做大小排序 (例如 "113年 10月" -> 11310)
+      Array.from(months).sort((a, b) => {
+        const parseYM = str => {
+          const m = str.match(/(\d+)年\s*(\d+)月/);
+          return m ? parseInt(m[1]) * 100 + parseInt(m[2]) : 0;
+        };
+        return parseYM(b) - parseYM(a);
+      }).forEach(m => {
         select.appendChild(new Option(m, m));
       });
+      
       if(Array.from(months).includes(currentVal)) select.value = currentVal;
     }
 
+    // ======== 🔍 搜尋列表 (新增刪除按鈕) ========
+    function filterLocalData() {
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const resultBox = document.getElementById('resultBox');
+      
+      if (!keyword && document.querySelectorAll('.tab')[1].classList.contains('active')) { 
+        // 預設如果沒打字，顯示最近的 20 筆資料
+      }
+      if (localLedgerData.length === 0) { resultBox.innerHTML = '<div class="result-item">請先點擊「同步資料」下載帳本！</div>'; return; }
+
+      let filtered = localLedgerData.filter(item => item.detail.toLowerCase().includes(keyword) || item.amount.toLowerCase().includes(keyword));
+      
+      filtered.sort((a, b) => {
+        const getVal = obj => {
+          let m = obj.detail.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
+          if(m) return m[1]*10000 + m[2]*100 + parseInt(m[3]);
+          m = obj.month.match(/(\d+)年\s*(\d+)月/);
+          return m ? m[1]*10000 + m[2]*100 : 0;
+        };
+        return getVal(b) - getVal(a);
+      });
+
+      if (filtered.length === 0) {
+        resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
+      } else {
+        // 🌟 新增了右側的刪除按鈕，並做了 UI 排版處理
+        resultBox.innerHTML = filtered.map(item => {
+          const safeDetail = item.detail.replace(/'/g, "\\'"); // 防止單引號讓 JS 報錯
+          return `
+          <div class="result-item" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+              <div class="result-month">📍 ${item.month}</div>
+              <div style="font-size: 18px;">
+                ${item.category ? `<span class="result-category">${item.category}</span>` : ''} 
+                ${item.detail}
+              </div>
+              <div class="result-amount">$ ${item.amount}</div>
+            </div>
+            <div style="padding-left: 10px;">
+               <button style="width: auto; padding: 12px 18px; margin-top: 0; background: #FF3B30; font-size: 20px;" 
+                 onclick="deleteRecord('${item.month}', '${item.category}', '${safeDetail}', '${item.amount}')">
+                 🗑️
+               </button>
+            </div>
+          </div>
+        `}).join('');
+      }
+    }
+
+    // ======== 🗑️ 刪除紀錄邏輯 ========
+    function deleteRecord(month, category, detail, amount) {
+      if (!confirm(`確定要刪除這筆紀錄嗎？\n\n📌 分類：${category}\n📝 項目：${detail}\n💰 金額：$${amount}`)) {
+        return;
+      }
+      
+      document.getElementById('searchLoading').style.display = 'block';
+      document.getElementById('searchLoading').innerText = "⏳ 正在雲端刪除此筆資料...";
+      
+      const payload = { action: 'delete', month, category, detail, amount };
+      
+      fetch(apiUrl, { method: "POST", body: JSON.stringify(payload) })
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === 'success') {
+          alert("✅ 刪除成功！");
+          // 從本地快取中剔除這筆資料，不用重新抓雲端，節省時間
+          localLedgerData = localLedgerData.filter(item => 
+            !(item.month === month && item.category === category && item.detail === detail && item.amount === amount)
+          );
+          localStorage.setItem('myLedgerData', JSON.stringify(localLedgerData));
+          filterLocalData(); // 重新渲染列表
+        } else {
+          alert("❌ 刪除失敗：" + res.message);
+        }
+      })
+      .catch(err => alert("❌ 網路錯誤：" + err.message))
+      .finally(() => {
+        document.getElementById('searchLoading').style.display = 'none';
+        document.getElementById('searchLoading').innerText = "⏳ 正在與雲端同步，請稍候...";
+      });
+    }
     function renderChart() {
       const selectedMonth = document.getElementById('chartMonthSelect').value;
       if(!selectedMonth) return;
