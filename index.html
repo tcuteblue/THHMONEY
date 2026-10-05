@@ -3,10 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>我的記帳本</title>
+  <title>家用雲帳本</title>
+  
+  <link rel="icon" href="icon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="icon.ico">
+
+  <!-- PWA App 設定 -->
+  <link rel="manifest" id="manifest-link">
+  <script>
+    const manifest = {
+      "name": "家用雲帳本",
+      "short_name": "家用雲帳本",
+      "start_url": "./index.html",
+      "display": "standalone",
+      "background_color": "#f2f2f7",
+      "theme_color": "#007AFF",
+      "icons": [
+        {
+          "src": "icon.ico",
+          "sizes": "192x192 512x512",
+          "type": "image/x-icon"
+        }
+      ]
+    };
+    const stringManifest = JSON.stringify(manifest);
+    const blob = new Blob([stringManifest], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    document.getElementById('manifest-link').href = manifestURL;
+  </script>
+
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
-    .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    /* 修正 body 排版：改為直向排列 (column)，確保標題與卡片上下置中 */
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background: #f0f2f5; 
+      margin: 0; 
+      padding: 0; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+    }
+    
+    .app-header {
+      background-color: #34A853; 
+      color: white;
+      text-align: center;
+      padding: 15px 0;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      width: 100%; /* 強制滿版寬度 */
+      box-sizing: border-box;
+    }
+
+    .card { 
+      background: white; 
+      width: 100%; 
+      max-width: 400px; 
+      padding: 25px; 
+      margin: 20px; /* 將原本 body 的 padding 移到這裡 */
+      border-radius: 16px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+      box-sizing: border-box;
+    }
     
     .tabs { display: flex; margin-bottom: 20px; background: #eee; border-radius: 8px; overflow: hidden; }
     .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
@@ -21,7 +84,7 @@
     
     button { width: 100%; padding: 14px; background: #007AFF; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 25px; cursor: pointer; transition: 0.2s; }
     button:active { transform: scale(0.98); }
-    button.sync-btn { background: #FF9500; margin-top: 10px; } /* 同步按鈕改橘色 */
+    button.sync-btn { background: #FF9500; margin-top: 10px; } 
 
     .loading { display: none; text-align: center; margin-top: 15px; color: #666; font-size: 14px; }
     
@@ -33,14 +96,17 @@
     .sync-status { font-size: 12px; color: #888; text-align: center; margin-top: 10px; }
   </style>
 </head>
+
 <body>
+  <div class="app-header">家用雲帳本</div>
+  
   <div class="card">
     <div class="tabs">
       <div class="tab active" onclick="switchTab('add')">✏️ 新增帳目</div>
       <div class="tab" onclick="switchTab('search')">🔍 查詢帳目</div>
     </div>
     
- <!-- 新增帳目 -->
+    <!-- 新增帳目 -->
     <div id="addView" class="view-section active">
       <label>📅 日期</label>
       <input type="date" id="dateInput">
@@ -60,11 +126,9 @@
         <option value="固定支出">固定支出 (不押日期)</option>
       </select>
       
-      <!-- 👇 金額移到上面來了 👇 -->
       <label>💰 金額 (元)</label>
       <input type="number" id="amountInput" placeholder="0" inputmode="numeric">
       
-      <!-- 👇 項目說明移到下面 👇 -->
       <label>📝 項目說明</label>
       <input type="text" id="itemInput" placeholder="例如：晚餐石二鍋">
       
@@ -75,24 +139,44 @@
     <!-- 查詢帳目 -->
     <div id="searchView" class="view-section">
       <label>🔍 萬用搜尋 (即時篩選)</label>
-      <!-- 注意：這裡拿掉了搜尋按鈕，改成打字時自動觸發 oninput -->
       <input type="text" id="searchInput" placeholder="輸入日期、品名或金額..." oninput="filterLocalData()">
       
-      <button class="sync-btn" onclick="syncData()">🔄 從雲端同步最新帳本</button>
-      <div class="sync-status" id="syncStatus">尚未同步資料</div>
+      <!-- 按鈕 1：本月極速更新 -->
+      <button class="sync-btn" style="background: #007AFF;" onclick="syncData('this_month')">📅 本月更新 (極速)</button>
+
+      <!-- 按鈕 2：自訂年份與月份 -->
+      <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+        <select id="syncYearSelect" style="margin-top: 0; flex: 1;"></select>
+        <span style="font-weight: bold; color: #555;">年</span>
+        <select id="syncMonthSelect" style="margin-top: 0; flex: 1;">
+          <option value="全部">全部</option>
+          <option value="1月">1月</option><option value="2月">2月</option>
+          <option value="3月">3月</option><option value="4月">4月</option>
+          <option value="5月">5月</option><option value="6月">6月</option>
+          <option value="7月">7月</option><option value="8月">8月</option>
+          <option value="9月">9月</option><option value="10月">10月</option>
+          <option value="11月">11月</option><option value="12月">12月</option>
+        </select>
+      </div>
+      <button class="sync-btn" style="background: #34C759; margin-top: 10px;" onclick="syncData('custom')">⚙️ 自訂更新指定帳本</button>
       
-      <div class="loading" id="searchLoading">⏳ 正在從雲端下載所有帳本，請稍候...</div>
+      <hr style="border: 0; height: 1px; background: #ddd; margin: 20px 0;">
+
+      <!-- 按鈕 3：完整同步 -->
+      <button class="sync-btn" style="background: #FF9500; margin-top: 0;" onclick="syncData('all')">🔄 完整同步 (歷年全抓，較耗時)</button>
+      
+      <div class="sync-status" id="syncStatus">尚未同步資料</div>
+      <div class="loading" id="searchLoading">⏳ 正在與雲端同步，請稍候...</div>
       
       <div class="result-box" id="resultBox"></div>
-    </div>
-  </div>
+    </div> <!-- 👈 補上原本遺漏的查詢區域結尾 -->
+  </div> <!-- 👈 卡片的結尾 -->
 
   <script>
     document.getElementById('dateInput').valueAsDate = new Date();
 
-    // 🔴 記得填入你的 API 網址！
     const apiUrl = "https://script.google.com/macros/s/AKfycbxvVEOlqWPu-MraLhOcOp2OkAX0zD5tOLJFwlbHkqtWQAu9MRBh4I3ek4U9yn0jfevl/exec";
-    
+
     let localLedgerData = [];
 
     function switchTab(tabName) {
@@ -136,25 +220,61 @@
       .finally(() => loading.style.display = 'none');
     }
 
-    // ======== 更新：計算並顯示同步耗時 ========
-    function syncData() {
+    // 網頁載入時，自動產生 102 年至今的選項 (由新到舊排列)
+    window.onload = function() {
+      const currentTwYear = new Date().getFullYear() - 1911;
+      const currentMonth = (new Date().getMonth() + 1) + "月";
+      
+      const yearSelect = document.getElementById('syncYearSelect');
+      
+      for (let y = currentTwYear + 1; y >= 102; y--) {
+        let opt = document.createElement('option');
+        opt.value = y;
+        opt.text = y;
+        if (y === currentTwYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+      }
+      document.getElementById('syncMonthSelect').value = currentMonth;
+    };
+
+    function syncData(mode) {
       const loading = document.getElementById('searchLoading');
       const statusText = document.getElementById('syncStatus');
       
+      const currentTwYear = new Date().getFullYear() - 1911;
+      const currentMonth = (new Date().getMonth() + 1) + "月";
+      
+      let targetYear = "";
+      let targetMonth = "";
+
+      if (mode === 'this_month') {
+        targetYear = currentTwYear.toString();
+        targetMonth = currentMonth;
+        statusText.innerText = `📅 正在極速更新本月 (${targetYear}年 ${targetMonth})...`;
+      } else if (mode === 'custom') {
+        targetYear = document.getElementById('syncYearSelect').value;
+        targetMonth = document.getElementById('syncMonthSelect').value;
+        statusText.innerText = `⚙️ 正在更新 ${targetYear}年 ${targetMonth}...`;
+      } else {
+        statusText.innerText = "🔄 完整同步中 (請耐心等候)...";
+      }
+      
       loading.style.display = 'block';
-      statusText.innerText = "同步中...";
       document.getElementById('resultBox').innerHTML = ''; 
 
-      // 1. 記錄開始同步的時間點
       const startTime = performance.now();
+      
+      let payload = { 
+        action: (mode === 'all') ? "sync" : "sync_custom",
+        targetYear: targetYear,
+        targetMonth: targetMonth
+      };
 
       fetch(apiUrl, {
         method: "POST",
         redirect: "follow",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({ action: "sync" })
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
       })
       .then(res => {
         if (!res.ok) throw new Error("伺服器回應錯誤，狀態碼: " + res.status);
@@ -162,31 +282,41 @@
       })
       .then(res => {
         if (res.status === 'success') {
-          // 2. 記錄結束同步的時間點，並計算耗時 (毫秒轉秒)
           const endTime = performance.now();
-          const duration = ((endTime - startTime) / 1000).toFixed(1); // 取小數點後 1 位
+          const duration = ((endTime - startTime) / 1000).toFixed(1);
 
-          localStorage.setItem('myLedgerData', JSON.stringify(res.data));
+          let finalData = [];
+          const oldData = JSON.parse(localStorage.getItem('myLedgerData') || '[]');
           
-          // 3. 將耗時資訊一起存起來
-          const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${res.data.length} 筆資料，耗時 ${duration} 秒)`;
+          if (mode === 'all') {
+            finalData = res.data; 
+          } else {
+            let filteredOldData = oldData;
+            
+            if (targetMonth === "全部") {
+              filteredOldData = oldData.filter(item => !item.month.startsWith(targetYear + "年"));
+            } else {
+              const targetLabel = targetYear + "年 " + targetMonth;
+              filteredOldData = oldData.filter(item => item.month !== targetLabel);
+            }
+            finalData = filteredOldData.concat(res.data);
+          }
+
+          localStorage.setItem('myLedgerData', JSON.stringify(finalData));
+          
+          const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料，本次耗時 ${duration} 秒)`;
           localStorage.setItem('myLedgerSyncInfo', syncInfo);
           
-          alert(`✅ 同步完成！共下載 ${res.data.length} 筆資料，耗時 ${duration} 秒。`);
+          alert(`✅ 同步完成！\n本次耗時 ${duration} 秒。`);
           loadLocalData(); 
         } else {
           alert("❌ 同步錯誤：" + res.message);
         }
       })
-      .catch(err => {
-        alert("❌ 真正的網路/系統錯誤是：\n" + err.message);
-      })
-      .finally(() => {
-        loading.style.display = 'none';
-      });
+      .catch(err => alert("❌ 錯誤：\n" + err.message))
+      .finally(() => loading.style.display = 'none');
     }
 
-    // ======== 更新：讀取並顯示包含耗時的同步資訊 ========
     function loadLocalData() {
       const storedData = localStorage.getItem('myLedgerData');
       const syncInfo = localStorage.getItem('myLedgerSyncInfo');
@@ -194,14 +324,13 @@
 
       if (storedData && syncInfo) {
         localLedgerData = JSON.parse(storedData);
-        // 直接顯示剛剛存好的詳細資訊 (包含時間與耗時)
         statusText.innerText = syncInfo; 
       } else {
         statusText.innerText = "尚未同步，請點擊上方按鈕下載資料";
       }
     }
 
-   function filterLocalData() {
+    function filterLocalData() {
       const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
       const resultBox = document.getElementById('resultBox');
       
@@ -215,34 +344,26 @@
         return;
       }
 
-      // 1. 先篩選出符合關鍵字的資料
       let filteredResults = localLedgerData.filter(item => {
         return item.detail.toLowerCase().includes(keyword) || 
                item.amount.toLowerCase().includes(keyword);
       });
 
-      // 2. 新增：針對篩選結果進行「由新到舊」排序
       filteredResults.sort((a, b) => {
-        // 建立一個計算日期分數的機制，分數越高代表時間越新 (例如：1150305 > 1141201)
         function getDateScore(obj) {
-          // 優先嘗試從 detail 抓取精確日期 (例如："115/03/05 晚餐")
           const dateMatch = obj.detail.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
           if (dateMatch) {
             return parseInt(dateMatch[1]) * 10000 + parseInt(dateMatch[2]) * 100 + parseInt(dateMatch[3]);
           }
-          // 若無精確日期(如固定支出)，則從 month 欄位抓取 (例如："115年 3月")
           const monthMatch = obj.month.match(/(\d+)年\s*(\d+)月/);
           if (monthMatch) {
-            return parseInt(monthMatch[1]) * 10000 + parseInt(monthMatch[2]) * 100; // 預設視為該月初
+            return parseInt(monthMatch[1]) * 10000 + parseInt(monthMatch[2]) * 100; 
           }
           return 0; 
         }
-        
-        // b 的分數減掉 a 的分數 = 分數大(越新)的排在最前面
         return getDateScore(b) - getDateScore(a);
       });
 
-      // 3. 渲染到畫面上
       if (filteredResults.length === 0) {
         resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
       } else {
@@ -259,7 +380,6 @@
         resultBox.innerHTML = html;
       }
     }
-  </script>
   </script>
 </body>
 </html>
