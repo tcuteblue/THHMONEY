@@ -183,6 +183,19 @@
     .modal-actions { display: flex; gap: 10px; }
     .modal-actions button { margin-top: 0; flex: 1; padding: 12px; }
     .btn-cancel { background: #E0E0E0; color: #333; }
+
+    /* ======== 🧮 計算機專屬樣式 ======== */
+    .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .calc-btn { 
+      background: #f8f9fa; color: #333; font-size: 22px; font-weight: bold; 
+      padding: 12px 0; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; 
+      transition: 0.1s; margin-top: 0; 
+    }
+    .calc-btn:active { background: #e2e6ea; transform: scale(0.95); }
+    .calc-op { background: #FFF3E0; color: #E65100; border-color: #FFE0B2; }
+    .calc-op:active { background: #FFE0B2; }
+    .calc-clear { background: #FFEBEE; color: #C62828; border-color: #FFCDD2; }
+    .calc-eval { background: #E8F5E9; color: #2E7D32; border-color: #C8E6C9; }
   </style>
 </head>
 
@@ -209,7 +222,11 @@
       </div>
       <select id="categoryInput"></select>
       
-      <label>💰 金額 (元)</label>
+      <!-- 🌟 金額與計算機按鈕 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+        <label style="margin-top: 0;">💰 金額 (元)</label>
+        <span style="font-size: 14px; color: #007AFF; cursor: pointer; font-weight: bold; background: #E3F2FD; padding: 4px 10px; border-radius: 12px;" onclick="openCalcModal()">🧮 打開計算機</span>
+      </div>
       <input type="number" id="amountInput" placeholder="0" inputmode="numeric">
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
@@ -263,7 +280,42 @@
     </div> 
   </div>
 
-  <!-- 管理面板 (Modal) -->
+  <!-- 🐞 修復：計算機面板 (Modal) 的 HTML 已經補上來了！ -->
+  <div class="modal-overlay" id="calcModal">
+    <div class="modal-card" style="max-width: 320px;">
+      <div class="modal-title">🧮 計算總金額</div>
+      <div id="calcDisplay" style="background: #f0f2f5; padding: 15px; text-align: right; font-size: 28px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; min-height: 33px; word-break: break-all; color: #333;">0</div>
+      
+      <div class="calc-grid">
+        <button class="calc-btn" onclick="calcInput('7')">7</button>
+        <button class="calc-btn" onclick="calcInput('8')">8</button>
+        <button class="calc-btn" onclick="calcInput('9')">9</button>
+        <button class="calc-btn calc-op" onclick="calcInput('+')">＋</button>
+        
+        <button class="calc-btn" onclick="calcInput('4')">4</button>
+        <button class="calc-btn" onclick="calcInput('5')">5</button>
+        <button class="calc-btn" onclick="calcInput('6')">6</button>
+        <button class="calc-btn calc-op" onclick="calcInput('-')">－</button>
+        
+        <button class="calc-btn" onclick="calcInput('1')">1</button>
+        <button class="calc-btn" onclick="calcInput('2')">2</button>
+        <button class="calc-btn" onclick="calcInput('3')">3</button>
+        <button class="calc-btn calc-op" onclick="calcInput('*')">×</button>
+        
+        <button class="calc-btn calc-clear" onclick="calcClear()">C</button>
+        <button class="calc-btn" onclick="calcInput('0')">0</button>
+        <button class="calc-btn" onclick="calcInput('.')">.</button>
+        <button class="calc-btn calc-eval" onclick="calcEval()">＝</button>
+      </div>
+      
+      <div class="modal-actions" style="margin-top: 15px;">
+        <button class="btn-cancel" onclick="closeCalcModal()">取消</button>
+        <button onclick="confirmCalc()">✔️ 帶入金額</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 原本的管理面板 (Modal) -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card">
       <div class="modal-title" id="modalTitle">設定</div>
@@ -417,7 +469,7 @@
       input.focus(); 
     }
 
-    // ======== 🌟 待選詞清洗邏輯 (去除日期與金額) ========
+    // ======== 🌟 待選詞清洗邏輯 (已修復亂碼問題) ========
     function updateDatalist() {
       if (!localLedgerData || localLedgerData.length === 0) return;
       const datalist = document.getElementById('historySuggestions');
@@ -426,10 +478,12 @@
       localLedgerData.forEach(item => {
         if (item.detail) {
           let cleanName = item.detail.trim();
-          // 過濾開頭的日期格式 (例如 114/05/12 或 5/12 等)
+          
+          // 1. 過濾開頭的日期格式
           cleanName = cleanName.replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '');
-          // 過濾結尾可能出現的金額數字 (例如 150 或 $150 或 150元)
-          cleanName = cleanName.replace(/\s+[$NT\$]*\d+(\.\d+)?[元]?$/, '');
+          
+          // 2. 🌟 修復的正則表達式：過濾尾端的金額數字與單位
+          cleanName = cleanName.replace(/[\s\-$]*(NT\$?\vert{}\$)?\d+(?:\.\d+)?[元\s]*$/i, '');
           
           cleanName = cleanName.trim();
           if (cleanName) {
@@ -491,7 +545,7 @@
       reader.readAsText(file);
     }
 
-    // ======== 🌟 網頁開啟/重新整理時自動同步本月帳本 ========
+    // ======== 網頁開啟/重新整理時自動同步本月帳本 ========
     window.onload = function() {
       const currentTwYear = new Date().getFullYear() - 1911;
       const currentMonth = (new Date().getMonth() + 1) + "月";
@@ -509,7 +563,7 @@
       loadQuickTags(); 
       loadLocalData(); 
 
-      // 執行背景自動更新 (不會跳出 alert 打擾)
+      // 執行背景自動更新
       autoSyncThisMonth(currentTwYear.toString(), currentMonth);
     };
 
@@ -534,11 +588,9 @@
 
           localStorage.setItem('myLedgerData', JSON.stringify(finalData));
           
-          // 更新同步時間狀態
           const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料)`;
           localStorage.setItem('myLedgerSyncInfo', syncInfo);
           
-          // 如果當下畫面在查詢頁面，則刷新畫面
           loadLocalData(); 
         }
       })
@@ -579,7 +631,7 @@
           alert("✅ 記帳成功！");
           document.getElementById('itemInput').value = '';
           document.getElementById('amountInput').value = '';
-          document.getElementById('syncStatus').innerText = "⚠️ 雲端有新帳目，建議同步更新";
+          document.getElementById('syncStatus').innerText = "⚠️️ 雲端有新帳目，建議同步更新";
         } else alert("❌ 發生錯誤：" + res.message);
       })
       .catch(err => alert("網路錯誤：" + err.message))
@@ -729,6 +781,58 @@
         });
         resultBox.innerHTML = html;
       }
+    }
+
+    // ======== 🧮 計算機互動邏輯 ========
+    let calcExpression = '';
+
+    function openCalcModal() {
+      document.getElementById('calcModal').style.display = 'flex';
+      calcExpression = document.getElementById('amountInput').value || '';
+      updateCalcDisplay();
+    }
+
+    function closeCalcModal() {
+      document.getElementById('calcModal').style.display = 'none';
+    }
+
+    function calcInput(val) {
+      if (calcExpression === '0' && val !== '.') calcExpression = '';
+      calcExpression += val;
+      updateCalcDisplay();
+    }
+
+    function calcClear() {
+      calcExpression = '';
+      updateCalcDisplay();
+    }
+
+    function calcEval() {
+      try {
+        if (!calcExpression) return;
+        const result = new Function('return ' + calcExpression)();
+        calcExpression = Math.round(result * 100) / 100 + ''; 
+        updateCalcDisplay();
+      } catch (e) {
+        calcExpression = '錯誤';
+        updateCalcDisplay();
+        setTimeout(calcClear, 1000);
+      }
+    }
+
+    function confirmCalc() {
+      if (/[+\-*/]/.test(calcExpression)) {
+        calcEval();
+      }
+      if (calcExpression !== '錯誤' && calcExpression !== '') {
+        document.getElementById('amountInput').value = calcExpression;
+      }
+      closeCalcModal();
+    }
+
+    function updateCalcDisplay() {
+      const display = document.getElementById('calcDisplay');
+      display.innerText = calcExpression === '' ? '0' : calcExpression;
     }
   </script>
 </body>
