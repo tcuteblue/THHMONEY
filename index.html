@@ -10,7 +10,7 @@
   <link rel="manifest" id="manifest-link">
 
   <script>
-    // ======== 1. 動態生成 Manifest (Blob) 與路徑絕對化 ========
+    // ======== 1. 動態生成 Manifest (Blob) ========
     const baseUrl = window.location.href.split('?')[0].replace(/index\.html$/, '');
     const absoluteIconUrl = new URL('icon.ico', baseUrl).href;
     const startUrl = new URL('./index.html', baseUrl).href;
@@ -41,7 +41,7 @@
     const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
     document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
 
-    // ======== 2. 動態生成與註冊 Service Worker (Blob) ========
+    // ======== 2. 動態生成與註冊 Service Worker ========
     if ('serviceWorker' in navigator) {
       const swCode = `
         self.addEventListener('install', e => self.skipWaiting());
@@ -55,7 +55,6 @@
       
       window.addEventListener('load', () => {
         navigator.serviceWorker.register(swUrl)
-          .then(() => console.log('✅ 動態 Service Worker 註冊成功'))
           .catch(err => console.error('❌ SW 註冊失敗:', err));
       });
     }
@@ -159,11 +158,11 @@
     .result-month { font-size: 12px; color: #888; margin-bottom: 4px; }
     .sync-status { font-size: 12px; color: #888; text-align: center; margin-top: 10px; }
 
-    /* ======== 🌟 全新升級：彈出式管理介面 (Modal) 樣式 ======== */
+    /* 管理面板 (Modal) 樣式 */
     .modal-overlay { 
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
       background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; 
-      backdrop-filter: blur(3px); /* 背景模糊增加質感 */
+      backdrop-filter: blur(3px); 
     }
     .modal-card { 
       background: white; width: 90%; max-width: 350px; border-radius: 16px; 
@@ -215,7 +214,7 @@
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">📝 項目說明</label>
-        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('tags')">⚙️️ 自訂標籤</span>
+        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('tags')">⚙️ 自訂標籤</span>
       </div>
       <div class="quick-tags" id="quickTagsContainer"></div>
       <input type="text" id="itemInput" placeholder="例如：晚餐 石二鍋" list="historySuggestions">
@@ -264,7 +263,7 @@
     </div> 
   </div>
 
-  <!-- ======== 🌟 新增：隱藏的管理面板 (Modal) ======== -->
+  <!-- 管理面板 (Modal) -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card">
       <div class="modal-title" id="modalTitle">設定</div>
@@ -274,9 +273,7 @@
         <button onclick="addModalItem()">➕ 新增</button>
       </div>
 
-      <div class="modal-list" id="modalList">
-        <!-- JS 動態產生清單項目 -->
-      </div>
+      <div class="modal-list" id="modalList"></div>
       
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeSettingsModal()">取消</button>
@@ -315,17 +312,16 @@
       installAppBtn.style.display = 'none';
     });
 
-
-    // ======== 🌟 核心：管理面板 (Modal) 邏輯 ========
-    let currentEditMode = ''; // 'categories' 或 'tags'
-    let tempEditingItems = []; // 暫存正在編輯的陣列
+    // ======== 管理面板 (Modal) 邏輯 ========
+    let currentEditMode = ''; 
+    let tempEditingItems = []; 
     const defaultCategories = "食品餐飲,治裝行頭,居家物業,行車交通,教育學習,休閒娛樂,醫療保健,人情往來,其他雜項,婦嬰用品,固定支出";
     const defaultTags = "早餐,午餐,晚餐";
 
     function openSettingsModal(mode) {
       currentEditMode = mode;
       document.getElementById('settingsModal').style.display = 'flex';
-      document.getElementById('modalNewInput').value = ''; // 清空輸入框
+      document.getElementById('modalNewInput').value = ''; 
       
       if (mode === 'categories') {
         document.getElementById('modalTitle').innerText = "🏷️ 管理記帳類別";
@@ -336,7 +332,6 @@
         const tagsStr = localStorage.getItem('myCustomTags') || defaultTags;
         tempEditingItems = tagsStr.split(',').filter(t => t.trim() !== '');
       }
-      
       renderModalList();
     }
 
@@ -371,12 +366,10 @@
       const input = document.getElementById('modalNewInput');
       const val = input.value.trim();
       if (val) {
-        // 防止使用者輸入逗號把陣列搞亂，把逗號濾掉
         const cleanVal = val.replace(/,/g, '');
         tempEditingItems.push(cleanVal);
         input.value = '';
         renderModalList();
-        // 自動捲動到最底下
         const listContainer = document.getElementById('modalList');
         listContainer.scrollTop = listContainer.scrollHeight;
       }
@@ -384,7 +377,6 @@
 
     function saveSettingsModal() {
       const finalString = tempEditingItems.join(',');
-      
       if (currentEditMode === 'categories') {
         localStorage.setItem('myCustomCategories', finalString);
         loadCategories();
@@ -392,11 +384,9 @@
         localStorage.setItem('myCustomTags', finalString);
         loadQuickTags();
       }
-      
       closeSettingsModal();
     }
 
-    // ======== 介面載入邏輯 ========
     function loadCategories() {
       const catStr = localStorage.getItem('myCustomCategories') || defaultCategories;
       const categories = catStr.split(',').filter(t => t.trim() !== '');
@@ -427,7 +417,7 @@
       input.focus(); 
     }
 
-    // ======== 歷史自動完成邏輯 ========
+    // ======== 🌟 待選詞清洗邏輯 (去除日期與金額) ========
     function updateDatalist() {
       if (!localLedgerData || localLedgerData.length === 0) return;
       const datalist = document.getElementById('historySuggestions');
@@ -435,7 +425,16 @@
       
       localLedgerData.forEach(item => {
         if (item.detail) {
-          uniqueItems.add(item.detail.trim());
+          let cleanName = item.detail.trim();
+          // 過濾開頭的日期格式 (例如 114/05/12 或 5/12 等)
+          cleanName = cleanName.replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '');
+          // 過濾結尾可能出現的金額數字 (例如 150 或 $150 或 150元)
+          cleanName = cleanName.replace(/\s+[$NT\$]*\d+(\.\d+)?[元]?$/, '');
+          
+          cleanName = cleanName.trim();
+          if (cleanName) {
+            uniqueItems.add(cleanName);
+          }
         }
       });
       
@@ -492,7 +491,7 @@
       reader.readAsText(file);
     }
 
-    // ======== 記帳與查詢、年份選單邏輯 ========
+    // ======== 🌟 網頁開啟/重新整理時自動同步本月帳本 ========
     window.onload = function() {
       const currentTwYear = new Date().getFullYear() - 1911;
       const currentMonth = (new Date().getMonth() + 1) + "月";
@@ -509,7 +508,42 @@
       loadCategories(); 
       loadQuickTags(); 
       loadLocalData(); 
+
+      // 執行背景自動更新 (不會跳出 alert 打擾)
+      autoSyncThisMonth(currentTwYear.toString(), currentMonth);
     };
+
+    function autoSyncThisMonth(targetYear, targetMonth) {
+      let payload = { action: "sync_custom", targetYear: targetYear, targetMonth: targetMonth };
+      
+      fetch(apiUrl, {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === 'success') {
+          let finalData = [];
+          const oldData = JSON.parse(localStorage.getItem('myLedgerData') || '[]');
+          const targetLabel = targetYear + "年 " + targetMonth;
+          
+          let filteredOldData = oldData.filter(item => item.month !== targetLabel);
+          finalData = filteredOldData.concat(res.data);
+
+          localStorage.setItem('myLedgerData', JSON.stringify(finalData));
+          
+          // 更新同步時間狀態
+          const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料)`;
+          localStorage.setItem('myLedgerSyncInfo', syncInfo);
+          
+          // 如果當下畫面在查詢頁面，則刷新畫面
+          loadLocalData(); 
+        }
+      })
+      .catch(err => console.log('背景同步失敗：', err));
+    }
 
     function switchTab(tabName) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -548,7 +582,7 @@
           document.getElementById('syncStatus').innerText = "⚠️ 雲端有新帳目，建議同步更新";
         } else alert("❌ 發生錯誤：" + res.message);
       })
-      .catch(err => alert("網路錯誤"))
+      .catch(err => alert("網路錯誤：" + err.message))
       .finally(() => loading.style.display = 'none');
     }
 
