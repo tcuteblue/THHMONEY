@@ -594,18 +594,28 @@
       if(Array.from(months).includes(currentVal)) select.value = currentVal;
     }
 
-    // ======== 🔍 搜尋列表 (新增刪除按鈕) ========
+    // ======== 🔍 搜尋列表 (修復空字串卡頓問題) ========
     function filterLocalData() {
       const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
       const resultBox = document.getElementById('resultBox');
       
-      if (!keyword && document.querySelectorAll('.tab')[1].classList.contains('active')) { 
-        // 預設如果沒打字，顯示最近的 20 筆資料
+      // 🌟 關鍵修復：如果沒有輸入關鍵字，直接清空畫面並中斷，絕對不渲染全部資料
+      if (!keyword) { 
+        resultBox.innerHTML = ''; 
+        return; 
       }
-      if (localLedgerData.length === 0) { resultBox.innerHTML = '<div class="result-item">請先點擊「同步資料」下載帳本！</div>'; return; }
-
-      let filtered = localLedgerData.filter(item => item.detail.toLowerCase().includes(keyword) || item.amount.toLowerCase().includes(keyword));
       
+      if (localLedgerData.length === 0) { 
+        resultBox.innerHTML = '<div class="result-item">請先點擊「同步資料」下載帳本！</div>'; 
+        return; 
+      }
+
+      let filtered = localLedgerData.filter(item => 
+        item.detail.toLowerCase().includes(keyword) || 
+        item.amount.toLowerCase().includes(keyword)
+      );
+      
+      // 依照日期新到舊排序
       filtered.sort((a, b) => {
         const getVal = obj => {
           let m = obj.detail.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
@@ -619,7 +629,7 @@
       if (filtered.length === 0) {
         resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
       } else {
-        // 🌟 新增了右側的刪除按鈕，並做了 UI 排版處理
+        // 渲染搜尋結果與刪除按鈕
         resultBox.innerHTML = filtered.map(item => {
           const safeDetail = item.detail.replace(/'/g, "\\'"); // 防止單引號讓 JS 報錯
           return `
