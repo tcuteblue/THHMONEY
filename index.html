@@ -33,7 +33,6 @@
   </script>
 
   <style>
-    /* 修正 body 排版：改為直向排列 (column)，確保標題與卡片上下置中 */
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
       background: #f0f2f5; 
@@ -56,7 +55,7 @@
       top: 0;
       z-index: 1000;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      width: 100%; /* 強制滿版寬度 */
+      width: 100%;
       box-sizing: border-box;
     }
 
@@ -65,7 +64,7 @@
       width: 100%; 
       max-width: 400px; 
       padding: 25px; 
-      margin: 20px; /* 將原本 body 的 padding 移到這裡 */
+      margin: 20px; 
       border-radius: 16px; 
       box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
       box-sizing: border-box;
@@ -99,6 +98,19 @@
 
 <body>
   <div class="app-header">家用雲帳本</div>
+
+  <!-- 安裝 APP 提示條 -->
+  <div id="installBanner" style="display: none; background: #fff; padding: 15px 20px; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); position: fixed; bottom: 0; left: 0; width: 100%; box-sizing: border-box; z-index: 2000; text-align: center; border-top-left-radius: 16px; border-top-right-radius: 16px;">
+    <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">💡 把「家用雲帳本」加入手機桌面，記帳更快速！</p>
+    <div id="androidInstallBox" style="display: none;">
+      <button id="installBtn" style="background: #34A853; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 45%; cursor: pointer;">立即安裝</button>
+      <button onclick="closeInstallBanner()" style="background: #eee; color: #555; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 45%; margin-left: 5%; cursor: pointer;">稍後再說</button>
+    </div>
+    <div id="iosInstallBox" style="display: none; font-size: 14px; color: #666;">
+      請點擊下方 <b>[分享]</b> 圖示，選擇 <b>[加入主畫面]</b><br>
+      <button onclick="closeInstallBanner()" style="background: #eee; color: #555; border: none; padding: 8px 20px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer;">我知道了</button>
+    </div>
+  </div>
   
   <div class="card">
     <div class="tabs">
@@ -141,10 +153,8 @@
       <label>🔍 萬用搜尋 (即時篩選)</label>
       <input type="text" id="searchInput" placeholder="輸入日期、品名或金額..." oninput="filterLocalData()">
       
-      <!-- 按鈕 1：本月極速更新 -->
       <button class="sync-btn" style="background: #007AFF;" onclick="syncData('this_month')">📅 本月更新 (極速)</button>
 
-      <!-- 按鈕 2：自訂年份與月份 -->
       <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
         <select id="syncYearSelect" style="margin-top: 0; flex: 1;"></select>
         <span style="font-weight: bold; color: #555;">年</span>
@@ -162,23 +172,84 @@
       
       <hr style="border: 0; height: 1px; background: #ddd; margin: 20px 0;">
 
-      <!-- 按鈕 3：完整同步 -->
       <button class="sync-btn" style="background: #FF9500; margin-top: 0;" onclick="syncData('all')">🔄 完整同步 (歷年全抓，較耗時)</button>
       
       <div class="sync-status" id="syncStatus">尚未同步資料</div>
       <div class="loading" id="searchLoading">⏳ 正在與雲端同步，請稍候...</div>
       
       <div class="result-box" id="resultBox"></div>
-    </div> <!-- 👈 補上原本遺漏的查詢區域結尾 -->
-  </div> <!-- 👈 卡片的結尾 -->
+    </div> 
+  </div>
 
   <script>
     document.getElementById('dateInput').valueAsDate = new Date();
-
     const apiUrl = "https://script.google.com/macros/s/AKfycbxvVEOlqWPu-MraLhOcOp2OkAX0zD5tOLJFwlbHkqtWQAu9MRBh4I3ek4U9yn0jfevl/exec";
-
     let localLedgerData = [];
 
+    // ======== PWA 安裝與 Service Worker 邏輯 ========
+    let deferredPrompt;
+    const installBanner = document.getElementById('installBanner');
+    
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW 註冊失敗', err));
+      });
+    }
+
+    const isIos = () => {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      return /iphone|ipad|ipod/.test(userAgent);
+    };
+
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!isInStandaloneMode()) {
+        installBanner.style.display = 'block';
+        document.getElementById('androidInstallBox').style.display = 'block';
+      }
+    });
+
+    window.onload = function() {
+      generateYearOptions(); 
+      if (isIos() && !isInStandaloneMode()) {
+        setTimeout(() => {
+          installBanner.style.display = 'block';
+          document.getElementById('iosInstallBox').style.display = 'block';
+        }, 1500); 
+      }
+    };
+
+    function generateYearOptions() {
+      const currentTwYear = new Date().getFullYear() - 1911;
+      const currentMonth = (new Date().getMonth() + 1) + "月";
+      const yearSelect = document.getElementById('syncYearSelect');
+      for (let y = currentTwYear + 1; y >= 102; y--) {
+        let opt = document.createElement('option');
+        opt.value = y;
+        opt.text = y;
+        if (y === currentTwYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+      }
+      document.getElementById('syncMonthSelect').value = currentMonth;
+    }
+
+    document.getElementById('installBtn').addEventListener('click', async () => {
+      installBanner.style.display = 'none';
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+      }
+    });
+
+    function closeInstallBanner() {
+      installBanner.style.display = 'none';
+    }
+
+    // ======== 記帳與查詢邏輯 ========
     function switchTab(tabName) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
@@ -219,23 +290,6 @@
       .catch(err => alert("網路錯誤"))
       .finally(() => loading.style.display = 'none');
     }
-
-    // 網頁載入時，自動產生 102 年至今的選項 (由新到舊排列)
-    window.onload = function() {
-      const currentTwYear = new Date().getFullYear() - 1911;
-      const currentMonth = (new Date().getMonth() + 1) + "月";
-      
-      const yearSelect = document.getElementById('syncYearSelect');
-      
-      for (let y = currentTwYear + 1; y >= 102; y--) {
-        let opt = document.createElement('option');
-        opt.value = y;
-        opt.text = y;
-        if (y === currentTwYear) opt.selected = true;
-        yearSelect.appendChild(opt);
-      }
-      document.getElementById('syncMonthSelect').value = currentMonth;
-    };
 
     function syncData(mode) {
       const loading = document.getElementById('searchLoading');
