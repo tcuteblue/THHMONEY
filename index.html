@@ -129,26 +129,26 @@
       100% { transform: scale(1); opacity: 1; }
     }
 
-    /* 一鍵快選標籤樣式 */
     .quick-tags { 
-      display: flex; 
-      gap: 10px; 
-      overflow-x: auto; 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 8px; 
       margin: 8px 0 12px 0; 
-      padding-bottom: 5px; 
-      white-space: nowrap; 
     }
-    .quick-tags::-webkit-scrollbar { display: none; } 
     .quick-tags span { 
       background: #E8F5E9; 
       color: #2E7D32; 
-      padding: 8px 14px; 
+      padding: 8px 2px; 
       border-radius: 20px; 
-      font-size: 14px; 
+      font-size: 13px; 
       font-weight: bold;
       cursor: pointer; 
       border: 1px solid #C8E6C9; 
       transition: 0.2s;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .quick-tags span:active { transform: scale(0.95); background: #C8E6C9; }
 
@@ -158,6 +158,32 @@
     .result-amount { font-weight: bold; color: #E02020; font-size: 16px; margin-top: 5px; }
     .result-month { font-size: 12px; color: #888; margin-bottom: 4px; }
     .sync-status { font-size: 12px; color: #888; text-align: center; margin-top: 10px; }
+
+    /* ======== 🌟 全新升級：彈出式管理介面 (Modal) 樣式 ======== */
+    .modal-overlay { 
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; 
+      backdrop-filter: blur(3px); /* 背景模糊增加質感 */
+    }
+    .modal-card { 
+      background: white; width: 90%; max-width: 350px; border-radius: 16px; 
+      padding: 20px; box-sizing: border-box; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      animation: popIn 0.3s ease-out;
+    }
+    .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; text-align: center; }
+    .modal-list { max-height: 250px; overflow-y: auto; margin-bottom: 15px; background: #fafafa; border-radius: 8px; padding: 5px; }
+    .modal-list-item { 
+      display: flex; justify-content: space-between; align-items: center; 
+      padding: 10px; border-bottom: 1px solid #eee; font-size: 15px; 
+    }
+    .modal-list-item:last-child { border-bottom: none; }
+    .delete-btn { color: #E02020; cursor: pointer; font-weight: bold; padding: 5px; font-size: 18px; }
+    .add-row { display: flex; gap: 10px; margin-bottom: 15px; }
+    .add-row input { margin-top: 0; flex: 1; }
+    .add-row button { margin-top: 0; width: auto; background: #34A853; padding: 12px 20px; }
+    .modal-actions { display: flex; gap: 10px; }
+    .modal-actions button { margin-top: 0; flex: 1; padding: 12px; }
+    .btn-cancel { background: #E0E0E0; color: #333; }
   </style>
 </head>
 
@@ -166,7 +192,6 @@
   
   <div class="card">
     
-    <!-- 🚀 動態安裝按鈕 -->
     <button id="installAppBtn">📲 點擊安裝「家用雲帳本」APP</button>
 
     <div class="tabs">
@@ -179,32 +204,20 @@
       <label>📅 日期</label>
       <input type="date" id="dateInput">
       
-      <label>🏷️ 分類</label>
-      <select id="categoryInput">
-        <option value="食品餐飲">食品餐飲</option>
-        <option value="治裝行頭">治裝行頭</option>
-        <option value="居家物業">居家物業</option>
-        <option value="行車交通">行車交通</option>
-        <option value="教育學習">教育學習</option>
-        <option value="休閒娛樂">休閒娛樂</option>
-        <option value="醫療保健">醫療保健</option>
-        <option value="人情往來">人情往來</option>
-        <option value="其他雜項">其他雜項</option>
-        <option value="婦嬰用品">婦嬰用品</option>
-        <option value="固定支出">固定支出 (不押日期)</option>
-      </select>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+        <label style="margin-top: 0;">🏷️ 分類</label>
+        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('categories')">⚙️ 自訂類別</span>
+      </div>
+      <select id="categoryInput"></select>
       
       <label>💰 金額 (元)</label>
       <input type="number" id="amountInput" placeholder="0" inputmode="numeric">
       
-      <!-- 🌟 可自訂的項目說明區塊 -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">📝 項目說明</label>
-        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="editQuickTags()">⚙️ 自訂標籤</span>
+        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('tags')">⚙️️ 自訂標籤</span>
       </div>
-      <div class="quick-tags" id="quickTagsContainer">
-        <!-- 動態載入自訂標籤 -->
-      </div>
+      <div class="quick-tags" id="quickTagsContainer"></div>
       <input type="text" id="itemInput" placeholder="例如：晚餐 石二鍋" list="historySuggestions">
       <datalist id="historySuggestions"></datalist>
       
@@ -241,7 +254,6 @@
       <div class="loading" id="searchLoading">⏳ 正在與雲端同步，請稍候...</div>
       <div class="result-box" id="resultBox"></div>
 
-      <!-- 🌟 本地資料備份區塊 -->
       <hr style="border: 0; height: 1px; background: #ddd; margin: 20px 0;">
       <label style="margin-top: 0;">💾 本地資料備份與還原</label>
       <div style="display: flex; gap: 10px; margin-top: 10px;">
@@ -250,6 +262,27 @@
       </div>
       <input type="file" id="importBackupInput" accept=".json" style="display: none;" onchange="importBackup(event)">
     </div> 
+  </div>
+
+  <!-- ======== 🌟 新增：隱藏的管理面板 (Modal) ======== -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-title" id="modalTitle">設定</div>
+      
+      <div class="add-row">
+        <input type="text" id="modalNewInput" placeholder="輸入新項目...">
+        <button onclick="addModalItem()">➕ 新增</button>
+      </div>
+
+      <div class="modal-list" id="modalList">
+        <!-- JS 動態產生清單項目 -->
+      </div>
+      
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeSettingsModal()">取消</button>
+        <button onclick="saveSettingsModal()">💾 儲存變更</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -282,9 +315,103 @@
       installAppBtn.style.display = 'none';
     });
 
-    // ======== 自訂快選標籤邏輯 ========
+
+    // ======== 🌟 核心：管理面板 (Modal) 邏輯 ========
+    let currentEditMode = ''; // 'categories' 或 'tags'
+    let tempEditingItems = []; // 暫存正在編輯的陣列
+    const defaultCategories = "食品餐飲,治裝行頭,居家物業,行車交通,教育學習,休閒娛樂,醫療保健,人情往來,其他雜項,婦嬰用品,固定支出";
+    const defaultTags = "早餐,午餐,晚餐";
+
+    function openSettingsModal(mode) {
+      currentEditMode = mode;
+      document.getElementById('settingsModal').style.display = 'flex';
+      document.getElementById('modalNewInput').value = ''; // 清空輸入框
+      
+      if (mode === 'categories') {
+        document.getElementById('modalTitle').innerText = "🏷️ 管理記帳類別";
+        const catStr = localStorage.getItem('myCustomCategories') || defaultCategories;
+        tempEditingItems = catStr.split(',').filter(t => t.trim() !== '');
+      } else if (mode === 'tags') {
+        document.getElementById('modalTitle').innerText = "📝 管理自訂標籤";
+        const tagsStr = localStorage.getItem('myCustomTags') || defaultTags;
+        tempEditingItems = tagsStr.split(',').filter(t => t.trim() !== '');
+      }
+      
+      renderModalList();
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').style.display = 'none';
+    }
+
+    function renderModalList() {
+      const listContainer = document.getElementById('modalList');
+      let html = '';
+      if (tempEditingItems.length === 0) {
+        html = '<div style="text-align:center; color:#999; padding: 10px;">(目前沒有項目)</div>';
+      } else {
+        tempEditingItems.forEach((item, index) => {
+          html += `
+            <div class="modal-list-item">
+              <span>${item}</span>
+              <span class="delete-btn" onclick="removeModalItem(${index})">❌</span>
+            </div>
+          `;
+        });
+      }
+      listContainer.innerHTML = html;
+    }
+
+    function removeModalItem(index) {
+      tempEditingItems.splice(index, 1);
+      renderModalList();
+    }
+
+    function addModalItem() {
+      const input = document.getElementById('modalNewInput');
+      const val = input.value.trim();
+      if (val) {
+        // 防止使用者輸入逗號把陣列搞亂，把逗號濾掉
+        const cleanVal = val.replace(/,/g, '');
+        tempEditingItems.push(cleanVal);
+        input.value = '';
+        renderModalList();
+        // 自動捲動到最底下
+        const listContainer = document.getElementById('modalList');
+        listContainer.scrollTop = listContainer.scrollHeight;
+      }
+    }
+
+    function saveSettingsModal() {
+      const finalString = tempEditingItems.join(',');
+      
+      if (currentEditMode === 'categories') {
+        localStorage.setItem('myCustomCategories', finalString);
+        loadCategories();
+      } else if (currentEditMode === 'tags') {
+        localStorage.setItem('myCustomTags', finalString);
+        loadQuickTags();
+      }
+      
+      closeSettingsModal();
+    }
+
+    // ======== 介面載入邏輯 ========
+    function loadCategories() {
+      const catStr = localStorage.getItem('myCustomCategories') || defaultCategories;
+      const categories = catStr.split(',').filter(t => t.trim() !== '');
+      const select = document.getElementById('categoryInput');
+      select.innerHTML = '';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.text = cat;
+        select.appendChild(opt);
+      });
+    }
+
     function loadQuickTags() {
-      const tagsStr = localStorage.getItem('myCustomTags') || '早餐,午餐,晚餐';
+      const tagsStr = localStorage.getItem('myCustomTags') || defaultTags;
       const tags = tagsStr.split(',').filter(t => t.trim() !== '');
       const container = document.getElementById('quickTagsContainer');
       let html = '';
@@ -292,15 +419,6 @@
         html += `<span onclick="addQuickText('${tag} ')">✨ ${tag}</span>`;
       });
       container.innerHTML = html;
-    }
-
-    function editQuickTags() {
-      const currentTags = localStorage.getItem('myCustomTags') || '早餐,午餐,晚餐';
-      const newTags = prompt("請輸入自訂標籤，多個標籤請用半形逗號(,)分隔：", currentTags);
-      if (newTags !== null) {
-        localStorage.setItem('myCustomTags', newTags);
-        loadQuickTags();
-      }
     }
 
     function addQuickText(text) {
@@ -328,12 +446,13 @@
       datalist.innerHTML = optionsHtml;
     }
 
-    // ======== 備份與還原邏輯 (動態 Blob 匯出/匯入) ========
+    // ======== 備份與還原邏輯 ========
     function exportBackup() {
       const backupData = {
         ledgerData: localStorage.getItem('myLedgerData') || '[]',
         syncInfo: localStorage.getItem('myLedgerSyncInfo') || '',
-        customTags: localStorage.getItem('myCustomTags') || '早餐,午餐,晚餐'
+        customTags: localStorage.getItem('myCustomTags') || defaultTags,
+        customCategories: localStorage.getItem('myCustomCategories') || defaultCategories
       };
       
       const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
@@ -359,11 +478,13 @@
           if (backupData.ledgerData) localStorage.setItem('myLedgerData', backupData.ledgerData);
           if (backupData.syncInfo) localStorage.setItem('myLedgerSyncInfo', backupData.syncInfo);
           if (backupData.customTags) localStorage.setItem('myCustomTags', backupData.customTags);
+          if (backupData.customCategories) localStorage.setItem('myCustomCategories', backupData.customCategories);
           
           alert("✅ 備份檔匯入成功！");
           loadLocalData();
           loadQuickTags();
-          document.getElementById('importBackupInput').value = ''; // 歸零 input 狀態
+          loadCategories(); 
+          document.getElementById('importBackupInput').value = ''; 
         } catch (err) {
           alert("❌ 匯入失敗：檔案格式錯誤或損毀。");
         }
@@ -385,8 +506,9 @@
       }
       document.getElementById('syncMonthSelect').value = currentMonth;
       
-      loadQuickTags(); // 載入自訂標籤
-      loadLocalData(); // 載入歷史資料
+      loadCategories(); 
+      loadQuickTags(); 
+      loadLocalData(); 
     };
 
     function switchTab(tabName) {
