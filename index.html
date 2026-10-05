@@ -7,29 +7,62 @@
   
   <link rel="icon" href="icon.ico" type="image/x-icon">
   <link rel="apple-touch-icon" href="icon.ico">
-
-  <!-- PWA App 設定 -->
   <link rel="manifest" id="manifest-link">
+
   <script>
+    // ======== 1. 動態生成 Manifest (Blob) 與路徑絕對化 ========
+    // 取得當前絕對路徑 (過濾掉 index.html 等結尾，確保路徑正確)
+    const baseUrl = window.location.href.split('?')[0].replace(/index\.html$/, '');
+    const absoluteIconUrl = new URL('icon.ico', baseUrl).href;
+    const startUrl = new URL('./index.html', baseUrl).href;
+
     const manifest = {
       "name": "家用雲帳本",
       "short_name": "家用雲帳本",
-      "start_url": "./index.html",
+      "start_url": startUrl,
       "display": "standalone",
       "background_color": "#f2f2f7",
-      "theme_color": "#007AFF",
+      "theme_color": "#34A853",
       "icons": [
         {
-          "src": "icon.ico",
+          "src": absoluteIconUrl,
           "sizes": "192x192 512x512",
-          "type": "image/x-icon"
+          "type": "image/x-icon",
+          "purpose": "any maskable"
+        },
+        // 🌟 加入 SVG 備援圖示，確保 Chrome 觸發安裝條件
+        {
+          "src": "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%2334A853'/%3E%3Ctext x='50' y='55' font-size='20' text-anchor='middle' fill='%23FFF' font-family='sans-serif'%3E帳本%3C/text%3E%3C/svg%3E",
+          "sizes": "192x192",
+          "type": "image/svg+xml",
+          "purpose": "any"
         }
       ]
     };
-    const stringManifest = JSON.stringify(manifest);
-    const blob = new Blob([stringManifest], {type: 'application/json'});
-    const manifestURL = URL.createObjectURL(blob);
-    document.getElementById('manifest-link').href = manifestURL;
+    
+    const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+
+    // ======== 2. 動態生成與註冊 Service Worker (Blob) ========
+    if ('serviceWorker' in navigator) {
+      // 建立基礎的 SW 腳本以支援離線與 PWA 條件
+      const swCode = `
+        self.addEventListener('install', e => self.skipWaiting());
+        self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+        self.addEventListener('fetch', e => {
+          // 放行所有請求，或在這裡實作快取策略
+          e.respondWith(fetch(e.request).catch(() => new Response('目前處於離線狀態')));
+        });
+      `;
+      const swBlob = new Blob([swCode], {type: 'application/javascript'});
+      const swUrl = URL.createObjectURL(swBlob);
+      
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register(swUrl)
+          .then(() => console.log('✅ 動態 Service Worker 註冊成功'))
+          .catch(err => console.error('❌ SW 註冊失敗:', err));
+      });
+    }
   </script>
 
   <style>
@@ -85,34 +118,38 @@
     button:active { transform: scale(0.98); }
     button.sync-btn { background: #FF9500; margin-top: 10px; } 
 
+    #installAppBtn { 
+      background: #E8F5E9; 
+      color: #2E7D32; 
+      border: 2px solid #34A853; 
+      margin-top: 0; 
+      margin-bottom: 20px; 
+      display: none; 
+      animation: popIn 0.5s ease-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
     .loading { display: none; text-align: center; margin-top: 15px; color: #666; font-size: 14px; }
-    
     .result-box { margin-top: 20px; max-height: 400px; overflow-y: auto; }
     .result-item { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 14px; }
     .result-amount { font-weight: bold; color: #E02020; font-size: 16px; margin-top: 5px; }
     .result-month { font-size: 12px; color: #888; margin-bottom: 4px; }
-    
     .sync-status { font-size: 12px; color: #888; text-align: center; margin-top: 10px; }
   </style>
 </head>
 
 <body>
   <div class="app-header">家用雲帳本</div>
-
-  <!-- 安裝 APP 提示條 -->
-  <div id="installBanner" style="display: none; background: #fff; padding: 15px 20px; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); position: fixed; bottom: 0; left: 0; width: 100%; box-sizing: border-box; z-index: 2000; text-align: center; border-top-left-radius: 16px; border-top-right-radius: 16px;">
-    <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">💡 把「家用雲帳本」加入手機桌面，記帳更快速！</p>
-    <div id="androidInstallBox" style="display: none;">
-      <button id="installBtn" style="background: #34A853; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 45%; cursor: pointer;">立即安裝</button>
-      <button onclick="closeInstallBanner()" style="background: #eee; color: #555; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 45%; margin-left: 5%; cursor: pointer;">稍後再說</button>
-    </div>
-    <div id="iosInstallBox" style="display: none; font-size: 14px; color: #666;">
-      請點擊下方 <b>[分享]</b> 圖示，選擇 <b>[加入主畫面]</b><br>
-      <button onclick="closeInstallBanner()" style="background: #eee; color: #555; border: none; padding: 8px 20px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer;">我知道了</button>
-    </div>
-  </div>
   
   <div class="card">
+    
+    <!-- 🚀 動態安裝按鈕 (滿足 PWA 條件才會浮現) -->
+    <button id="installAppBtn">📲 點擊安裝「家用雲帳本」APP</button>
+
     <div class="tabs">
       <div class="tab active" onclick="switchTab('add')">✏️ 新增帳目</div>
       <div class="tab" onclick="switchTab('search')">🔍 查詢帳目</div>
@@ -186,43 +223,40 @@
     const apiUrl = "https://script.google.com/macros/s/AKfycbxvVEOlqWPu-MraLhOcOp2OkAX0zD5tOLJFwlbHkqtWQAu9MRBh4I3ek4U9yn0jfevl/exec";
     let localLedgerData = [];
 
-    // ======== PWA 安裝與 Service Worker 邏輯 ========
+    // ======== 3. 安裝為 APP 按鈕邏輯 (beforeinstallprompt) ========
     let deferredPrompt;
-    const installBanner = document.getElementById('installBanner');
-    
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW 註冊失敗', err));
-      });
-    }
-
-    const isIos = () => {
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      return /iphone|ipad|ipod/.test(userAgent);
-    };
-
-    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+    const installAppBtn = document.getElementById('installAppBtn');
 
     window.addEventListener('beforeinstallprompt', (e) => {
+      // 防止 Chrome 預設的迷你資訊列出現
       e.preventDefault();
+      // 儲存事件以便稍後觸發
       deferredPrompt = e;
-      if (!isInStandaloneMode()) {
-        installBanner.style.display = 'block';
-        document.getElementById('androidInstallBox').style.display = 'block';
+      // 顯示我們自訂的安裝按鈕
+      installAppBtn.style.display = 'block';
+    });
+
+    installAppBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        // 顯示原生的安裝提示
+        deferredPrompt.prompt();
+        // 等待使用者回應
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          console.log('✅ 使用者同意安裝');
+          installAppBtn.style.display = 'none'; // 安裝成功後隱藏按鈕
+        }
+        deferredPrompt = null;
       }
     });
 
-    window.onload = function() {
-      generateYearOptions(); 
-      if (isIos() && !isInStandaloneMode()) {
-        setTimeout(() => {
-          installBanner.style.display = 'block';
-          document.getElementById('iosInstallBox').style.display = 'block';
-        }, 1500); 
-      }
-    };
+    // 監聽 APP 是否已成功安裝，若完成安裝則自動隱藏按鈕
+    window.addEventListener('appinstalled', () => {
+      installAppBtn.style.display = 'none';
+    });
 
-    function generateYearOptions() {
+    // ======== 記帳與查詢、年份選單邏輯 ========
+    window.onload = function() {
       const currentTwYear = new Date().getFullYear() - 1911;
       const currentMonth = (new Date().getMonth() + 1) + "月";
       const yearSelect = document.getElementById('syncYearSelect');
@@ -234,22 +268,8 @@
         yearSelect.appendChild(opt);
       }
       document.getElementById('syncMonthSelect').value = currentMonth;
-    }
+    };
 
-    document.getElementById('installBtn').addEventListener('click', async () => {
-      installBanner.style.display = 'none';
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-      }
-    });
-
-    function closeInstallBanner() {
-      installBanner.style.display = 'none';
-    }
-
-    // ======== 記帳與查詢邏輯 ========
     function switchTab(tabName) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
@@ -308,7 +328,7 @@
       } else if (mode === 'custom') {
         targetYear = document.getElementById('syncYearSelect').value;
         targetMonth = document.getElementById('syncMonthSelect').value;
-        statusText.innerText = `⚙️ 正在更新 ${targetYear}年 ${targetMonth}...`;
+        statusText.innerText = `⚙️️ 正在更新 ${targetYear}年 ${targetMonth}...`;
       } else {
         statusText.innerText = "🔄 完整同步中 (請耐心等候)...";
       }
