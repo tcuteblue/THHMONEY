@@ -8,6 +8,9 @@
   <link rel="icon" href="icon.ico" type="image/x-icon">
   <link rel="apple-touch-icon" href="icon.ico">
   <link rel="manifest" id="manifest-link">
+  
+  <!-- 載入 Chart.js 供圖表使用 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     // ======== 1. 動態生成 Manifest (Blob) ========
@@ -61,6 +64,7 @@
   </script>
 
   <style>
+    /* 🌟 全域字體放大調整 */
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
       background: #f0f2f5; 
@@ -69,14 +73,15 @@
       display: flex; 
       flex-direction: column; 
       align-items: center; 
+      font-size: 16px; /* 基礎字體 16px */
     }
     
     .app-header {
       background-color: #34A853; 
       color: white;
       text-align: center;
-      padding: 15px 0;
-      font-size: 22px;
+      padding: 18px 0;
+      font-size: 28px; /* 原 22px -> 28px */
       font-weight: bold;
       letter-spacing: 2px;
       position: sticky;
@@ -90,7 +95,7 @@
     .card { 
       background: white; 
       width: 100%; 
-      max-width: 400px; 
+      max-width: 450px; /* 稍微加寬以適應大字體 */
       padding: 25px; 
       margin: 20px; 
       border-radius: 16px; 
@@ -99,103 +104,74 @@
     }
     
     .tabs { display: flex; margin-bottom: 20px; background: #eee; border-radius: 8px; overflow: hidden; }
-    .tab { flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
+    .tab { flex: 1; text-align: center; padding: 14px; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; font-size: 18px; }
     .tab.active { background: #007AFF; color: white; }
     
     .view-section { display: none; }
     .view-section.active { display: block; }
 
-    label { display: block; margin-top: 15px; font-weight: bold; color: #555; font-size: 14px; }
-    input, select { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; background: #fafafa; }
+    /* 標題與標籤小字皆提升為 16px 起跳 */
+    label { display: block; margin-top: 15px; font-weight: bold; color: #555; font-size: 18px; }
+    
+    /* 輸入框與按鈕等比例放大至 20px */
+    input, select { width: 100%; padding: 14px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 20px; background: #fafafa; }
     input:focus, select:focus { outline: none; border-color: #007AFF; background: white; }
     
-    button { width: 100%; padding: 14px; background: #007AFF; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 25px; cursor: pointer; transition: 0.2s; }
+    button { width: 100%; padding: 16px; background: #007AFF; color: white; border: none; border-radius: 8px; font-size: 20px; font-weight: bold; margin-top: 25px; cursor: pointer; transition: 0.2s; }
     button:active { transform: scale(0.98); }
     button.sync-btn { background: #FF9500; margin-top: 10px; } 
 
-    #installAppBtn { 
-      background: #E8F5E9; 
-      color: #2E7D32; 
-      border: 2px solid #34A853; 
-      margin-top: 0; 
-      margin-bottom: 20px; 
-      display: none; 
-      animation: popIn 0.5s ease-out;
-    }
+    #installAppBtn { background: #E8F5E9; color: #2E7D32; border: 2px solid #34A853; margin-top: 0; margin-bottom: 20px; display: none; animation: popIn 0.5s ease-out; }
 
     @keyframes popIn {
       0% { transform: scale(0.9); opacity: 0; }
       100% { transform: scale(1); opacity: 1; }
     }
 
-    .quick-tags { 
-      display: grid; 
-      grid-template-columns: repeat(4, 1fr); 
-      gap: 8px; 
-      margin: 8px 0 12px 0; 
-    }
+    .quick-tags { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 12px 0; }
     .quick-tags span { 
-      background: #E8F5E9; 
-      color: #2E7D32; 
-      padding: 8px 2px; 
-      border-radius: 20px; 
-      font-size: 13px; 
-      font-weight: bold;
-      cursor: pointer; 
-      border: 1px solid #C8E6C9; 
-      transition: 0.2s;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      background: #E8F5E9; color: #2E7D32; padding: 10px 4px; border-radius: 20px; 
+      font-size: 16px; /* 原 13px -> 16px (跟舊按鈕一樣大) */
+      font-weight: bold; cursor: pointer; border: 1px solid #C8E6C9; 
+      transition: 0.2s; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
     }
     .quick-tags span:active { transform: scale(0.95); background: #C8E6C9; }
 
-    .loading { display: none; text-align: center; margin-top: 15px; color: #666; font-size: 14px; }
+    .loading { display: none; text-align: center; margin-top: 15px; color: #666; font-size: 16px; }
     .result-box { margin-top: 20px; max-height: 400px; overflow-y: auto; }
-    .result-item { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 14px; }
-    .result-amount { font-weight: bold; color: #E02020; font-size: 16px; margin-top: 5px; }
-    .result-month { font-size: 12px; color: #888; margin-bottom: 4px; }
-    .sync-status { font-size: 12px; color: #888; text-align: center; margin-top: 10px; }
+    .result-item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 18px; }
+    .result-amount { font-weight: bold; color: #E02020; font-size: 22px; margin-top: 8px; }
+    .result-category { font-size: 14px; color: white; background: #34A853; padding: 2px 8px; border-radius: 12px; margin-right: 8px; display: inline-block; }
+    .result-month { font-size: 16px; color: #888; margin-bottom: 6px; }
+    .sync-status { font-size: 16px; color: #888; text-align: center; margin-top: 10px; line-height: 1.4; }
 
     /* 管理面板 (Modal) 樣式 */
-    .modal-overlay { 
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-      background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; 
-      backdrop-filter: blur(3px); 
-    }
-    .modal-card { 
-      background: white; width: 90%; max-width: 350px; border-radius: 16px; 
-      padding: 20px; box-sizing: border-box; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      animation: popIn 0.3s ease-out;
-    }
-    .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; text-align: center; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+    .modal-card { background: white; width: 90%; max-width: 400px; border-radius: 16px; padding: 25px; box-sizing: border-box; box-shadow: 0 10px 25px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out; }
+    .modal-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #333; text-align: center; }
     .modal-list { max-height: 250px; overflow-y: auto; margin-bottom: 15px; background: #fafafa; border-radius: 8px; padding: 5px; }
-    .modal-list-item { 
-      display: flex; justify-content: space-between; align-items: center; 
-      padding: 10px; border-bottom: 1px solid #eee; font-size: 15px; 
-    }
+    .modal-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; font-size: 18px; }
     .modal-list-item:last-child { border-bottom: none; }
-    .delete-btn { color: #E02020; cursor: pointer; font-weight: bold; padding: 5px; font-size: 18px; }
+    .delete-btn { color: #E02020; cursor: pointer; font-weight: bold; padding: 5px; font-size: 22px; }
     .add-row { display: flex; gap: 10px; margin-bottom: 15px; }
-    .add-row input { margin-top: 0; flex: 1; }
-    .add-row button { margin-top: 0; width: auto; background: #34A853; padding: 12px 20px; }
+    .add-row input { margin-top: 0; flex: 1; font-size: 18px; }
+    .add-row button { margin-top: 0; width: auto; background: #34A853; padding: 12px 20px; font-size: 18px; }
     .modal-actions { display: flex; gap: 10px; }
-    .modal-actions button { margin-top: 0; flex: 1; padding: 12px; }
+    .modal-actions button { margin-top: 0; flex: 1; padding: 14px; font-size: 18px; }
     .btn-cancel { background: #E0E0E0; color: #333; }
 
     /* ======== 🧮 計算機專屬樣式 ======== */
-    .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .calc-btn { 
-      background: #f8f9fa; color: #333; font-size: 22px; font-weight: bold; 
-      padding: 12px 0; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; 
-      transition: 0.1s; margin-top: 0; 
-    }
+    .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .calc-btn { background: #f8f9fa; color: #333; font-size: 28px; font-weight: bold; padding: 16px 0; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; transition: 0.1s; margin-top: 0; }
     .calc-btn:active { background: #e2e6ea; transform: scale(0.95); }
     .calc-op { background: #FFF3E0; color: #E65100; border-color: #FFE0B2; }
     .calc-op:active { background: #FFE0B2; }
     .calc-clear { background: #FFEBEE; color: #C62828; border-color: #FFCDD2; }
     .calc-eval { background: #E8F5E9; color: #2E7D32; border-color: #C8E6C9; }
+    #calcDisplay { background: #f0f2f5; padding: 15px; text-align: right; font-size: 34px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; min-height: 40px; word-break: break-all; color: #333; }
+    
+    /* Chart 容器 */
+    .chart-container { margin-top: 20px; position: relative; height: 300px; width: 100%; }
   </style>
 </head>
 
@@ -203,32 +179,31 @@
   <div class="app-header">家用雲帳本</div>
   
   <div class="card">
-    
     <button id="installAppBtn">📲 點擊安裝「家用雲帳本」APP</button>
 
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('add')">✏️ 新增帳目</div>
-      <div class="tab" onclick="switchTab('search')">🔍 查詢帳目</div>
+      <div class="tab active" onclick="switchTab('add')">✏️ 新增</div>
+      <div class="tab" onclick="switchTab('search')">🔍 查詢</div>
+      <div class="tab" onclick="switchTab('chart')">📊 圖表</div>
     </div>
     
-    <!-- 新增帳目 -->
+    <!-- ✏️ 新增帳目 -->
     <div id="addView" class="view-section active">
       <label>📅 日期</label>
       <input type="date" id="dateInput">
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">🏷️ 分類</label>
-        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('categories')">⚙️ 自訂類別</span>
+        <span style="font-size: 16px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('categories')">⚙️ 自訂類別</span>
       </div>
       <select id="categoryInput"></select>
       
      <label>💰 金額 (元)</label>
-      <!-- 加入 onclick 直接呼叫計算機，並加上 readonly 防止手機原生鍵盤彈出干擾 -->
       <input type="text" id="amountInput" placeholder="🧮 點擊輸入金額..." onclick="openCalcModal()" readonly style="cursor: pointer; background: #F4F8FF; color: #007AFF; font-weight: bold; text-align: center; border-color: #007AFF;">
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">📝 項目說明</label>
-        <span style="font-size: 12px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('tags')">⚙️ 自訂標籤</span>
+        <span style="font-size: 16px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('tags')">⚙️ 自訂標籤</span>
       </div>
       <div class="quick-tags" id="quickTagsContainer"></div>
       <input type="text" id="itemInput" placeholder="例如：晚餐 石二鍋" list="historySuggestions">
@@ -238,16 +213,16 @@
       <div class="loading" id="addLoading">⏳ 資料寫入中...</div>
     </div>
 
-    <!-- 查詢帳目與備份管理 -->
+    <!-- 🔍 查詢帳目與備份管理 -->
     <div id="searchView" class="view-section">
       <label>🔍 萬用搜尋 (即時篩選)</label>
-      <input type="text" id="searchInput" placeholder="輸入日期、品名或金額..." oninput="filterLocalData()">
+      <input type="text" id="searchInput" placeholder="日期、品名或金額..." oninput="filterLocalData()">
       
       <button class="sync-btn" style="background: #007AFF;" onclick="syncData('this_month')">📅 本月更新 (極速)</button>
 
       <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
         <select id="syncYearSelect" style="margin-top: 0; flex: 1;"></select>
-        <span style="font-weight: bold; color: #555;">年</span>
+        <span style="font-weight: bold; color: #555; font-size: 18px;">年</span>
         <select id="syncMonthSelect" style="margin-top: 0; flex: 1;">
           <option value="全部">全部</option>
           <option value="1月">1月</option><option value="2月">2月</option>
@@ -258,10 +233,11 @@
           <option value="11月">11月</option><option value="12月">12月</option>
         </select>
       </div>
-      <button class="sync-btn" style="background: #34C759; margin-top: 10px;" onclick="syncData('custom')">⚙ 自訂更新指定帳本</button>
+      <button class="sync-btn" style="background: #34C759; margin-top: 10px;" onclick="syncData('custom')">⚙ 抓取指定月份帳本</button>
       
       <hr style="border: 0; height: 1px; background: #ddd; margin: 20px 0;">
-      <button class="sync-btn" style="background: #FF9500; margin-top: 0;" onclick="syncData('all')">🔄 完整同步 (歷年全抓，較耗時)</button>
+
+      <button class="sync-btn" style="background: #FF9500; margin-top: 0; margin-bottom: 20px;" onclick="syncData('all')">🔄 完整同步 (歷年全抓，適合新設備)</button>
       
       <div class="sync-status" id="syncStatus">尚未同步資料</div>
       <div class="loading" id="searchLoading">⏳ 正在與雲端同步，請稍候...</div>
@@ -270,18 +246,29 @@
       <hr style="border: 0; height: 1px; background: #ddd; margin: 20px 0;">
       <label style="margin-top: 0;">💾 本地資料備份與還原</label>
       <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button style="background: #607D8B; margin-top: 0; flex: 1; padding: 10px; font-size: 14px;" onclick="exportBackup()">📥 匯出備份</button>
-        <button style="background: #78909C; margin-top: 0; flex: 1; padding: 10px; font-size: 14px;" onclick="document.getElementById('importBackupInput').click()">📤 匯入備份</button>
+        <button style="background: #607D8B; margin-top: 0; flex: 1; padding: 12px; font-size: 16px;" onclick="exportBackup()">📥 匯出備份</button>
+        <button style="background: #78909C; margin-top: 0; flex: 1; padding: 12px; font-size: 16px;" onclick="document.getElementById('importBackupInput').click()">📤 匯入備份</button>
       </div>
       <input type="file" id="importBackupInput" accept=".json" style="display: none;" onchange="importBackup(event)">
     </div> 
+
+    <!-- 📊 圖表分析 (新增功能) -->
+    <div id="chartView" class="view-section">
+      <label>📊 選擇分析月份 (依本地快取)</label>
+      <select id="chartMonthSelect" onchange="renderChart()"></select>
+      
+      <div class="chart-container">
+        <canvas id="expenseChart"></canvas>
+      </div>
+      <div id="chartTotalInfo" style="text-align: center; margin-top: 15px; font-size: 22px; font-weight: bold; color: #333;"></div>
+    </div>
   </div>
 
-  <!-- 🐞 修復：計算機面板 (Modal) 的 HTML 已經補上來了！ -->
+  <!-- 🧮 計算機面板 -->
   <div class="modal-overlay" id="calcModal">
-    <div class="modal-card" style="max-width: 320px;">
+    <div class="modal-card" style="max-width: 380px;">
       <div class="modal-title">🧮 計算總金額</div>
-      <div id="calcDisplay" style="background: #f0f2f5; padding: 15px; text-align: right; font-size: 28px; font-weight: bold; border-radius: 8px; margin-bottom: 15px; min-height: 33px; word-break: break-all; color: #333;">0</div>
+      <div id="calcDisplay">0</div>
       
       <div class="calc-grid">
         <button class="calc-btn" onclick="calcInput('7')">7</button>
@@ -305,14 +292,14 @@
         <button class="calc-btn calc-eval" onclick="calcEval()">＝</button>
       </div>
       
-      <div class="modal-actions" style="margin-top: 15px;">
+      <div class="modal-actions" style="margin-top: 20px;">
         <button class="btn-cancel" onclick="closeCalcModal()">取消</button>
         <button onclick="confirmCalc()">✔️ 帶入金額</button>
       </div>
     </div>
   </div>
 
-  <!-- 原本的管理面板 (Modal) -->
+  <!-- 設定面板 -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card">
       <div class="modal-title" id="modalTitle">設定</div>
@@ -326,274 +313,126 @@
       
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeSettingsModal()">取消</button>
-        <button onclick="saveSettingsModal()">💾 儲存變更</button>
+        <button onclick="saveSettingsModal()">💾 儲存</button>
       </div>
     </div>
   </div>
 
   <script>
     document.getElementById('dateInput').valueAsDate = new Date();
+    // ⚠️️ 記得替換成你的最新 GAS 部署 URL
     const apiUrl = "https://script.google.com/macros/s/AKfycbxvVEOlqWPu-MraLhOcOp2OkAX0zD5tOLJFwlbHkqtWQAu9MRBh4I3ek4U9yn0jfevl/exec";
     let localLedgerData = [];
+    let expenseChartInstance = null; // 儲存 Chart 物件
 
-    // ======== PWA 安裝按鈕邏輯 ========
+    // PWA 安裝按鈕邏輯... (與原版相同，省略贅述)
     let deferredPrompt;
     const installAppBtn = document.getElementById('installAppBtn');
-
     window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installAppBtn.style.display = 'block';
+      e.preventDefault(); deferredPrompt = e; installAppBtn.style.display = 'block';
     });
-
     installAppBtn.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-          installAppBtn.style.display = 'none'; 
-        }
-        deferredPrompt = null;
-      }
+      if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; installAppBtn.style.display = 'none'; deferredPrompt = null; }
     });
 
-    window.addEventListener('appinstalled', () => {
-      installAppBtn.style.display = 'none';
-    });
-
-    // ======== 管理面板 (Modal) 邏輯 ========
+    // 設定面板邏輯... (維持不變)
     let currentEditMode = ''; 
     let tempEditingItems = []; 
     const defaultCategories = "食品餐飲,治裝行頭,居家物業,行車交通,教育學習,休閒娛樂,醫療保健,人情往來,其他雜項,婦嬰用品,固定支出";
     const defaultTags = "早餐,午餐,晚餐";
 
-    function openSettingsModal(mode) {
-      currentEditMode = mode;
-      document.getElementById('settingsModal').style.display = 'flex';
+    function openSettingsModal(mode) { /* 略 */ 
+      currentEditMode = mode; document.getElementById('settingsModal').style.display = 'flex';
       document.getElementById('modalNewInput').value = ''; 
-      
-      if (mode === 'categories') {
-        document.getElementById('modalTitle').innerText = "🏷️ 管理記帳類別";
-        const catStr = localStorage.getItem('myCustomCategories') || defaultCategories;
-        tempEditingItems = catStr.split(',').filter(t => t.trim() !== '');
-      } else if (mode === 'tags') {
-        document.getElementById('modalTitle').innerText = "📝 管理自訂標籤";
-        const tagsStr = localStorage.getItem('myCustomTags') || defaultTags;
-        tempEditingItems = tagsStr.split(',').filter(t => t.trim() !== '');
-      }
+      if (mode === 'categories') { document.getElementById('modalTitle').innerText = "🏷️ 管理記帳類別"; tempEditingItems = (localStorage.getItem('myCustomCategories') || defaultCategories).split(',').filter(t=>t.trim()!==''); } 
+      else if (mode === 'tags') { document.getElementById('modalTitle').innerText = "📝 管理自訂標籤"; tempEditingItems = (localStorage.getItem('myCustomTags') || defaultTags).split(',').filter(t=>t.trim()!==''); }
       renderModalList();
     }
-
-    function closeSettingsModal() {
-      document.getElementById('settingsModal').style.display = 'none';
-    }
-
+    function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
     function renderModalList() {
-      const listContainer = document.getElementById('modalList');
-      let html = '';
-      if (tempEditingItems.length === 0) {
-        html = '<div style="text-align:center; color:#999; padding: 10px;">(目前沒有項目)</div>';
-      } else {
-        tempEditingItems.forEach((item, index) => {
-          html += `
-            <div class="modal-list-item">
-              <span>${item}</span>
-              <span class="delete-btn" onclick="removeModalItem(${index})">❌</span>
-            </div>
-          `;
-        });
-      }
-      listContainer.innerHTML = html;
+      let html = tempEditingItems.length === 0 ? '<div style="text-align:center; color:#999; padding:10px;">(目前沒有項目)</div>' : '';
+      tempEditingItems.forEach((item, i) => html += `<div class="modal-list-item"><span>${item}</span><span class="delete-btn" onclick="removeModalItem(${i})">❌</span></div>`);
+      document.getElementById('modalList').innerHTML = html;
     }
-
-    function removeModalItem(index) {
-      tempEditingItems.splice(index, 1);
-      renderModalList();
-    }
-
+    function removeModalItem(i) { tempEditingItems.splice(i, 1); renderModalList(); }
     function addModalItem() {
-      const input = document.getElementById('modalNewInput');
-      const val = input.value.trim();
-      if (val) {
-        const cleanVal = val.replace(/,/g, '');
-        tempEditingItems.push(cleanVal);
-        input.value = '';
-        renderModalList();
-        const listContainer = document.getElementById('modalList');
-        listContainer.scrollTop = listContainer.scrollHeight;
-      }
+      const val = document.getElementById('modalNewInput').value.trim().replace(/,/g, '');
+      if (val) { tempEditingItems.push(val); document.getElementById('modalNewInput').value = ''; renderModalList(); }
     }
-
     function saveSettingsModal() {
-      const finalString = tempEditingItems.join(',');
-      if (currentEditMode === 'categories') {
-        localStorage.setItem('myCustomCategories', finalString);
-        loadCategories();
-      } else if (currentEditMode === 'tags') {
-        localStorage.setItem('myCustomTags', finalString);
-        loadQuickTags();
-      }
+      const finalStr = tempEditingItems.join(',');
+      if (currentEditMode === 'categories') { localStorage.setItem('myCustomCategories', finalStr); loadCategories(); } 
+      else { localStorage.setItem('myCustomTags', finalStr); loadQuickTags(); }
       closeSettingsModal();
     }
-
     function loadCategories() {
-      const catStr = localStorage.getItem('myCustomCategories') || defaultCategories;
-      const categories = catStr.split(',').filter(t => t.trim() !== '');
-      const select = document.getElementById('categoryInput');
-      select.innerHTML = '';
-      categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.text = cat;
-        select.appendChild(opt);
-      });
+      const categories = (localStorage.getItem('myCustomCategories') || defaultCategories).split(',').filter(t=>t.trim()!=='');
+      const select = document.getElementById('categoryInput'); select.innerHTML = '';
+      categories.forEach(cat => select.appendChild(new Option(cat, cat)));
     }
-
     function loadQuickTags() {
-      const tagsStr = localStorage.getItem('myCustomTags') || defaultTags;
-      const tags = tagsStr.split(',').filter(t => t.trim() !== '');
-      const container = document.getElementById('quickTagsContainer');
-      let html = '';
-      tags.forEach(tag => {
-        html += `<span onclick="addQuickText('${tag} ')">✨ ${tag}</span>`;
-      });
-      container.innerHTML = html;
+      const tags = (localStorage.getItem('myCustomTags') || defaultTags).split(',').filter(t=>t.trim()!=='');
+      document.getElementById('quickTagsContainer').innerHTML = tags.map(tag => `<span onclick="addQuickText('${tag} ')">✨ ${tag}</span>`).join('');
     }
+    function addQuickText(text) { document.getElementById('itemInput').value = text; document.getElementById('itemInput').focus(); }
 
-    function addQuickText(text) {
-      const input = document.getElementById('itemInput');
-      input.value = text; 
-      input.focus(); 
-    }
-
-    // ======== 🌟 待選詞清洗邏輯 (已修復亂碼問題) ========
     function updateDatalist() {
-      if (!localLedgerData || localLedgerData.length === 0) return;
-      const datalist = document.getElementById('historySuggestions');
+      if (!localLedgerData) return;
       const uniqueItems = new Set();
-      
       localLedgerData.forEach(item => {
         if (item.detail) {
-          let cleanName = item.detail.trim();
-          
-          // 1. 過濾開頭的日期格式
-          cleanName = cleanName.replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '');
-          
-          // 2. 🌟 修復的正則表達式：過濾尾端的金額數字與單位
-          cleanName = cleanName.replace(/[\s\-$]*(NT\$?\vert{}\$)?\d+(?:\.\d+)?[元\s]*$/i, '');
-          
-          cleanName = cleanName.trim();
-          if (cleanName) {
-            uniqueItems.add(cleanName);
-          }
+          let cleanName = item.detail.trim().replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '').replace(/[\s\-$]*(NT\$?\vert{}\$)?\d+(?:\.\d+)?[元\s]*$/i, '').trim();
+          if (cleanName) uniqueItems.add(cleanName);
         }
       });
-      
-      let optionsHtml = '';
-      uniqueItems.forEach(val => {
-        optionsHtml += `<option value="${val}">`;
-      });
-      datalist.innerHTML = optionsHtml;
+      document.getElementById('historySuggestions').innerHTML = Array.from(uniqueItems).map(v => `<option value="${v}">`).join('');
     }
 
-    // ======== 備份與還原邏輯 ========
+    // 備份與還原...
     function exportBackup() {
-      const backupData = {
-        ledgerData: localStorage.getItem('myLedgerData') || '[]',
-        syncInfo: localStorage.getItem('myLedgerSyncInfo') || '',
-        customTags: localStorage.getItem('myCustomTags') || defaultTags,
-        customCategories: localStorage.getItem('myCustomCategories') || defaultCategories
-      };
-      
-      const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const dateStr = new Date().toISOString().split('T')[0];
-      a.download = `家用雲帳本備份_${dateStr}.json`;
-      document.body.appendChild(a);
+      const backupData = { ledgerData: localStorage.getItem('myLedgerData')||'[]', syncInfo: localStorage.getItem('myLedgerSyncInfo')||'', customTags: localStorage.getItem('myCustomTags')||defaultTags, customCategories: localStorage.getItem('myCustomCategories')||defaultCategories };
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(backupData)], {type: 'application/json'})); a.download = `家用雲帳本備份_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     }
-
     function importBackup(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      
+      const file = event.target.files[0]; if (!file) return;
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = e => {
         try {
-          const backupData = JSON.parse(e.target.result);
-          if (backupData.ledgerData) localStorage.setItem('myLedgerData', backupData.ledgerData);
-          if (backupData.syncInfo) localStorage.setItem('myLedgerSyncInfo', backupData.syncInfo);
-          if (backupData.customTags) localStorage.setItem('myCustomTags', backupData.customTags);
-          if (backupData.customCategories) localStorage.setItem('myCustomCategories', backupData.customCategories);
-          
-          alert("✅ 備份檔匯入成功！");
-          loadLocalData();
-          loadQuickTags();
-          loadCategories(); 
-          document.getElementById('importBackupInput').value = ''; 
-        } catch (err) {
-          alert("❌ 匯入失敗：檔案格式錯誤或損毀。");
-        }
+          const bd = JSON.parse(e.target.result);
+          if(bd.ledgerData) localStorage.setItem('myLedgerData', bd.ledgerData); if(bd.syncInfo) localStorage.setItem('myLedgerSyncInfo', bd.syncInfo);
+          if(bd.customTags) localStorage.setItem('myCustomTags', bd.customTags); if(bd.customCategories) localStorage.setItem('myCustomCategories', bd.customCategories);
+          alert("✅ 備份檔匯入成功！"); loadLocalData(); loadQuickTags(); loadCategories();
+        } catch(err) { alert("❌ 匯入失敗：檔案格式錯誤。"); }
       };
       reader.readAsText(file);
     }
 
-    // ======== 網頁開啟/重新整理時自動同步本月帳本 ========
     window.onload = function() {
       const currentTwYear = new Date().getFullYear() - 1911;
       const currentMonth = (new Date().getMonth() + 1) + "月";
       const yearSelect = document.getElementById('syncYearSelect');
-      for (let y = currentTwYear + 1; y >= 102; y--) {
-        let opt = document.createElement('option');
-        opt.value = y;
-        opt.text = y;
-        if (y === currentTwYear) opt.selected = true;
-        yearSelect.appendChild(opt);
-      }
+      for (let y = currentTwYear + 1; y >= 102; y--) { yearSelect.appendChild(new Option(y, y, false, y === currentTwYear)); }
       document.getElementById('syncMonthSelect').value = currentMonth;
       
-      loadCategories(); 
-      loadQuickTags(); 
-      loadLocalData(); 
-
-      // 執行背景自動更新
+      loadCategories(); loadQuickTags(); loadLocalData(); 
       autoSyncThisMonth(currentTwYear.toString(), currentMonth);
     };
 
     function autoSyncThisMonth(targetYear, targetMonth) {
-      let payload = { action: "sync_custom", targetYear: targetYear, targetMonth: targetMonth };
-      
-      fetch(apiUrl, {
-        method: "POST",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      })
-      .then(res => res.json())
-      .then(res => {
+      fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear, targetMonth }) })
+      .then(res => res.json()).then(res => {
         if (res.status === 'success') {
-          let finalData = [];
-          const oldData = JSON.parse(localStorage.getItem('myLedgerData') || '[]');
           const targetLabel = targetYear + "年 " + targetMonth;
-          
-          let filteredOldData = oldData.filter(item => item.month !== targetLabel);
-          finalData = filteredOldData.concat(res.data);
-
+          let finalData = JSON.parse(localStorage.getItem('myLedgerData') || '[]').filter(item => item.month !== targetLabel).concat(res.data);
           localStorage.setItem('myLedgerData', JSON.stringify(finalData));
-          
-          const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料)`;
-          localStorage.setItem('myLedgerSyncInfo', syncInfo);
-          
+          localStorage.setItem('myLedgerSyncInfo', `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料)`);
           loadLocalData(); 
         }
-      })
-      .catch(err => console.log('背景同步失敗：', err));
+      });
     }
 
+    // 🌟 新增 Tab 切換邏輯 (支援圖表頁)
     function switchTab(tabName) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
@@ -601,131 +440,95 @@
       if (tabName === 'add') {
         document.querySelectorAll('.tab')[0].classList.add('active');
         document.getElementById('addView').classList.add('active');
-      } else {
+      } else if (tabName === 'search') {
         document.querySelectorAll('.tab')[1].classList.add('active');
         document.getElementById('searchView').classList.add('active');
         loadLocalData(); 
+      } else {
+        document.querySelectorAll('.tab')[2].classList.add('active');
+        document.getElementById('chartView').classList.add('active');
+        populateChartMonthSelect();
+        renderChart();
       }
     }
 
     function submitData() {
-      const loading = document.getElementById('addLoading');
-      const data = {
-        action: "add",
-        date: document.getElementById('dateInput').value,
-        category: document.getElementById('categoryInput').value,
-        item: document.getElementById('itemInput').value,
-        amount: document.getElementById('amountInput').value
-      };
-
+      const data = { action: "add", date: document.getElementById('dateInput').value, category: document.getElementById('categoryInput').value, item: document.getElementById('itemInput').value, amount: document.getElementById('amountInput').value };
       if (!data.item || !data.amount) return alert("請填寫項目與金額！");
-
-      loading.style.display = 'block';
+      document.getElementById('addLoading').style.display = 'block';
       fetch(apiUrl, { method: "POST", body: JSON.stringify(data) })
-      .then(res => res.json())
-      .then(res => {
+      .then(res => res.json()).then(res => {
         if (res.status === 'success') {
-          alert("✅ 記帳成功！");
-          document.getElementById('itemInput').value = '';
-          document.getElementById('amountInput').value = '';
-          document.getElementById('syncStatus').innerText = "⚠️️ 雲端有新帳目，建議同步更新";
-        } else alert("❌ 發生錯誤：" + res.message);
+          alert("✅ 記帳成功！"); document.getElementById('itemInput').value = ''; document.getElementById('amountInput').value = '';
+          document.getElementById('syncStatus').innerText = "⚠ 雲端有新帳目，建議切換至查詢頁面同步更新";
+        } else alert("❌ 錯誤：" + res.message);
       })
-      .catch(err => alert("網路錯誤：" + err.message))
-      .finally(() => loading.style.display = 'none');
+      .finally(() => document.getElementById('addLoading').style.display = 'none');
     }
 
     function syncData(mode) {
-      const loading = document.getElementById('searchLoading');
-      const statusText = document.getElementById('syncStatus');
-      
       const currentTwYear = new Date().getFullYear() - 1911;
-      const currentMonth = (new Date().getMonth() + 1) + "月";
       
       let targetYear = "";
       let targetMonth = "";
 
       if (mode === 'this_month') {
         targetYear = currentTwYear.toString();
-        targetMonth = currentMonth;
-        statusText.innerText = `📅 正在極速更新本月 (${targetYear}年 ${targetMonth})...`;
+        targetMonth = (new Date().getMonth() + 1) + "月";
+        document.getElementById('syncStatus').innerText = `📅 正在極速更新本月 (${targetYear}年 ${targetMonth})...`;
       } else if (mode === 'custom') {
         targetYear = document.getElementById('syncYearSelect').value;
         targetMonth = document.getElementById('syncMonthSelect').value;
-        statusText.innerText = `⚙ 正在更新 ${targetYear}年 ${targetMonth}...`;
-      } else {
-        statusText.innerText = "🔄 完整同步中 (請耐心等候)...";
+        document.getElementById('syncStatus').innerText = `⚙ 正在更新 ${targetYear}年 ${targetMonth}...`;
+      } else if (mode === 'all') {
+        // 留空代表歷年全抓
+        document.getElementById('syncStatus').innerText = "🔄 完整同步中 (歷年資料全抓，請耐心等候)...";
       }
       
-      loading.style.display = 'block';
-      document.getElementById('resultBox').innerHTML = ''; 
-
+      document.getElementById('searchLoading').style.display = 'block';
       const startTime = performance.now();
       
-      let payload = { 
-        action: (mode === 'all') ? "sync" : "sync_custom",
-        targetYear: targetYear,
-        targetMonth: targetMonth
-      };
-
-      fetch(apiUrl, {
-        method: "POST",
-        redirect: "follow",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("伺服器回應錯誤，狀態碼: " + res.status);
-        return res.json(); 
-      })
-      .then(res => {
+      // 統一呼叫 sync_custom，靠參數決定抓取範圍
+      fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear, targetMonth }) })
+      .then(res => res.json()).then(res => {
         if (res.status === 'success') {
-          const endTime = performance.now();
-          const duration = ((endTime - startTime) / 1000).toFixed(1);
-
+          const duration = ((performance.now() - startTime) / 1000).toFixed(1);
           let finalData = [];
-          const oldData = JSON.parse(localStorage.getItem('myLedgerData') || '[]');
-          
-          if (mode === 'all') {
-            finalData = res.data; 
-          } else {
-            let filteredOldData = oldData;
-            
-            if (targetMonth === "全部") {
-              filteredOldData = oldData.filter(item => !item.month.startsWith(targetYear + "年"));
-            } else {
-              const targetLabel = targetYear + "年 " + targetMonth;
-              filteredOldData = oldData.filter(item => item.month !== targetLabel);
-            }
-            finalData = filteredOldData.concat(res.data);
-          }
 
-          localStorage.setItem('myLedgerData', JSON.stringify(finalData));
+          if (mode === 'all') {
+            // 歷年全抓：直接覆蓋本地快取
+            finalData = res.data;
+          } else {
+            // 局部更新：過濾掉該年月舊資料，接上新資料
+            let oldData = JSON.parse(localStorage.getItem('myLedgerData') || '[]');
+            if (targetMonth === "全部") {
+               oldData = oldData.filter(item => !item.month.startsWith(targetYear + "年"));
+            } else {
+               oldData = oldData.filter(item => item.month !== (targetYear + "年 " + targetMonth));
+            }
+            finalData = oldData.concat(res.data);
+          }
           
-          const syncInfo = `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料，本次耗時 ${duration} 秒)`;
-          localStorage.setItem('myLedgerSyncInfo', syncInfo);
+          localStorage.setItem('myLedgerData', JSON.stringify(finalData));
+          localStorage.setItem('myLedgerSyncInfo', `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料，耗時 ${duration} 秒)`);
           
           alert(`✅ 同步完成！\n本次耗時 ${duration} 秒。`);
           loadLocalData(); 
-        } else {
-          alert("❌ 同步錯誤：" + res.message);
-        }
+        } else alert("❌ 同步錯誤：" + res.message);
       })
-      .catch(err => alert("❌ 錯誤：\n" + err.message))
-      .finally(() => loading.style.display = 'none');
+      .catch(err => alert("❌ 錯誤：" + err.message))
+      .finally(() => document.getElementById('searchLoading').style.display = 'none');
     }
 
     function loadLocalData() {
       const storedData = localStorage.getItem('myLedgerData');
       const syncInfo = localStorage.getItem('myLedgerSyncInfo');
-      const statusText = document.getElementById('syncStatus');
-
+      
       if (storedData && syncInfo) {
         localLedgerData = JSON.parse(storedData);
-        statusText.innerText = syncInfo; 
+        document.getElementById('syncStatus').innerText = syncInfo; 
         updateDatalist(); 
-      } else {
-        statusText.innerText = "尚未同步，請點擊上方按鈕下載資料";
+        filterLocalData(); // 重新整理列表
       }
     }
 
@@ -733,54 +536,94 @@
       const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
       const resultBox = document.getElementById('resultBox');
       
-      if (!keyword) {
-        resultBox.innerHTML = ''; 
-        return;
-      }
+      if (!keyword) { resultBox.innerHTML = ''; return; }
+      if (localLedgerData.length === 0) { resultBox.innerHTML = '<div class="result-item">請先點擊「同步資料」下載帳本！</div>'; return; }
+
+      let filtered = localLedgerData.filter(item => item.detail.toLowerCase().includes(keyword) || item.amount.toLowerCase().includes(keyword));
       
-      if (localLedgerData.length === 0) {
-        resultBox.innerHTML = '<div class="result-item">請先點擊「同步資料」下載帳本！</div>';
-        return;
-      }
-
-      let filteredResults = localLedgerData.filter(item => {
-        return item.detail.toLowerCase().includes(keyword) || 
-               item.amount.toLowerCase().includes(keyword);
+      // 日期新到舊排序
+      filtered.sort((a, b) => {
+        const getVal = obj => {
+          let m = obj.detail.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
+          if(m) return m[1]*10000 + m[2]*100 + parseInt(m[3]);
+          m = obj.month.match(/(\d+)年\s*(\d+)月/);
+          return m ? m[1]*10000 + m[2]*100 : 0;
+        };
+        return getVal(b) - getVal(a);
       });
 
-      filteredResults.sort((a, b) => {
-        function getDateScore(obj) {
-          const dateMatch = obj.detail.match(/^(\d{2,3})\/(\d{1,2})\/(\d{1,2})/);
-          if (dateMatch) {
-            return parseInt(dateMatch[1]) * 10000 + parseInt(dateMatch[2]) * 100 + parseInt(dateMatch[3]);
-          }
-          const monthMatch = obj.month.match(/(\d+)年\s*(\d+)月/);
-          if (monthMatch) {
-            return parseInt(monthMatch[1]) * 10000 + parseInt(monthMatch[2]) * 100; 
-          }
-          return 0; 
-        }
-        return getDateScore(b) - getDateScore(a);
-      });
-
-      if (filteredResults.length === 0) {
-        resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
-      } else {
-        let html = '';
-        filteredResults.forEach(item => {
-          html += `
-            <div class="result-item">
-              <div class="result-month">📍 ${item.month}</div>
-              <div>${item.detail}</div>
-              <div class="result-amount">$ ${item.amount}</div>
+      if (filtered.length === 0) resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
+      else {
+        resultBox.innerHTML = filtered.map(item => `
+          <div class="result-item">
+            <div class="result-month">📍 ${item.month}</div>
+            <div style="font-size: 18px;">
+              ${item.category ? `<span class="result-category">${item.category}</span>` : ''} 
+              ${item.detail}
             </div>
-          `;
-        });
-        resultBox.innerHTML = html;
+            <div class="result-amount">$ ${item.amount}</div>
+          </div>
+        `).join('');
       }
     }
 
-    // ======== 🧮 計算機互動邏輯 ========
+    // ======== 📊 Chart.js 圖表邏輯 ========
+    function populateChartMonthSelect() {
+      if(localLedgerData.length === 0) return;
+      const months = new Set(localLedgerData.map(item => item.month));
+      const select = document.getElementById('chartMonthSelect');
+      const currentVal = select.value;
+      
+      select.innerHTML = '';
+      Array.from(months).sort((a, b) => b.localeCompare(a)).forEach(m => {
+        select.appendChild(new Option(m, m));
+      });
+      if(Array.from(months).includes(currentVal)) select.value = currentVal;
+    }
+
+    function renderChart() {
+      const selectedMonth = document.getElementById('chartMonthSelect').value;
+      if(!selectedMonth) return;
+      
+      // 計算各分類總和
+      const categoryTotals = {};
+      let totalAmount = 0;
+      
+      localLedgerData.filter(item => item.month === selectedMonth).forEach(item => {
+        let cat = item.category || "未分類";
+        let amt = parseFloat(item.amount.toString().replace(/,/g, '')) || 0;
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + amt;
+        totalAmount += amt;
+      });
+
+      document.getElementById('chartTotalInfo').innerText = `總支出: $ ${totalAmount.toLocaleString()} 元`;
+
+      const labels = Object.keys(categoryTotals);
+      const data = Object.values(categoryTotals);
+      const backgroundColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#8D6E63', '#26A69A', '#EC407A', '#AB47BC', '#78909C'];
+
+      const ctx = document.getElementById('expenseChart').getContext('2d');
+      if (expenseChartInstance) {
+        expenseChartInstance.destroy(); // 避免圖表重疊
+      }
+      
+      expenseChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{ data: data, backgroundColor: backgroundColors }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 16 } } }
+          }
+        }
+      });
+    }
+
+    // ======== 🧮 計算機互動邏輯 (安全性增強版) ========
     let calcExpression = '';
 
     function openCalcModal() {
@@ -788,25 +631,22 @@
       calcExpression = document.getElementById('amountInput').value || '';
       updateCalcDisplay();
     }
-
-    function closeCalcModal() {
-      document.getElementById('calcModal').style.display = 'none';
-    }
+    function closeCalcModal() { document.getElementById('calcModal').style.display = 'none'; }
 
     function calcInput(val) {
       if (calcExpression === '0' && val !== '.') calcExpression = '';
       calcExpression += val;
       updateCalcDisplay();
     }
-
-    function calcClear() {
-      calcExpression = '';
-      updateCalcDisplay();
-    }
+    function calcClear() { calcExpression = ''; updateCalcDisplay(); }
 
     function calcEval() {
       try {
         if (!calcExpression) return;
+        // 🛡️ 安全防護：只允許數字、加減乘除與小數點，防止 XSS 注入 (避免 eval/new Function 漏洞)
+        if (!/^[\d+\-*/.]+$/.test(calcExpression)) {
+          throw new Error("無效字元");
+        }
         const result = new Function('return ' + calcExpression)();
         calcExpression = Math.round(result * 100) / 100 + ''; 
         updateCalcDisplay();
@@ -818,18 +658,13 @@
     }
 
     function confirmCalc() {
-      if (/[+\-*/]/.test(calcExpression)) {
-        calcEval();
-      }
-      if (calcExpression !== '錯誤' && calcExpression !== '') {
-        document.getElementById('amountInput').value = calcExpression;
-      }
+      if (/[+\-*/]/.test(calcExpression)) calcEval();
+      if (calcExpression !== '錯誤' && calcExpression !== '') document.getElementById('amountInput').value = calcExpression;
       closeCalcModal();
     }
 
     function updateCalcDisplay() {
-      const display = document.getElementById('calcDisplay');
-      display.innerText = calcExpression === '' ? '0' : calcExpression;
+      document.getElementById('calcDisplay').innerText = calcExpression === '' ? '0' : calcExpression;
     }
   </script>
 </body>
