@@ -213,7 +213,7 @@
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">🏷️ 分類</label>
-        <span style="font-size: 16px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('categories')">⚙️ 自訂類別</span>
+        <span style="font-size: 16px; color: #007AFF; cursor: pointer; font-weight: bold;" onclick="openSettingsModal('categories')">⚙️ 自訂分類</span>
       </div>
       <select id="categoryInput"></select>
       
@@ -392,7 +392,7 @@
       currentEditMode = mode; document.getElementById('settingsModal').style.display = 'flex';
       document.getElementById('modalNewInput').value = ''; 
       if (mode === 'categories') { 
-        document.getElementById('modalTitle').innerText = "🏷️ 管理記帳類別"; 
+        document.getElementById('modalTitle').innerText = "🏷️ 管理記帳分類"; 
         tempEditingItems = (localStorage.getItem(getStoreKey('myCustomCategories')) || defaultCategories).split(',').filter(t=>t.trim()!==''); 
       } else if (mode === 'tags') { 
         document.getElementById('modalTitle').innerText = "📝 管理自訂標籤"; 
