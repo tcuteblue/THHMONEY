@@ -14,7 +14,8 @@
 
   <script>
     // ======== 1. 動態生成 Manifest (Blob) ========
-    const baseUrl = window.location.href.split('?')[0].replace(/index\.html$/, '');
+    let baseUrl = window.location.href.split('?')[0].replace(/index\.html$/, '');
+    if (!baseUrl.endsWith('/')) baseUrl += '/';
     const absoluteIconUrl = new URL('icon.ico', baseUrl).href;
     const startUrl = new URL('./index.html', baseUrl).href;
 
@@ -50,7 +51,16 @@
         self.addEventListener('install', e => self.skipWaiting());
         self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
         self.addEventListener('fetch', e => {
-          e.respondWith(fetch(e.request).catch(() => new Response('目前處於離線狀態')));
+          e.respondWith(
+            fetch(e.request).catch(() => {
+              // 判斷是否為 GAS API 請求，如果是，回傳 JSON 假回應避免 res.json() 報錯
+              if (e.request.url.includes('exec')) {
+                const fallbackJSON = JSON.stringify({ status: 'error', message: '目前處於離線狀態，請檢查網路連線' });
+                return new Response(fallbackJSON, { headers: { 'Content-Type': 'application/json' } });
+              }
+              return new Response('目前處於離線狀態');
+            })
+          );
         });
       `;
       const swBlob = new Blob([swCode], {type: 'application/javascript'});
@@ -446,7 +456,7 @@
       const uniqueItems = new Set();
       localLedgerData.forEach(item => {
         if (item.detail) {
-          let cleanName = item.detail.trim().replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '').replace(/[\s\-$]*(NT\$?|\$)?\d+(?:\.\d+)?[元\s]*$/i, '').trim();
+          let cleanName = item.detail.trim().replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '').replace(/[\s\-$]*(NT\$?\vert{}\$)?\d+(?:\.\d+)?[元\s]*$/i, '').trim();
           if (cleanName) uniqueItems.add(cleanName);
         }
       });
@@ -501,14 +511,18 @@
 
     function autoSyncThisMonth(targetYear, targetMonth) {
       fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear, targetMonth, ledger: currentLedger }) })
-      .then(res => res.json()).then(res => {
-        if (res.status === 'success') {
-          const targetLabel = targetYear + "年 " + targetMonth;
-          let finalData = JSON.parse(localStorage.getItem(getStoreKey('myLedgerData')) || '[]').filter(item => item.month !== targetLabel).concat(res.data);
-          localStorage.setItem(getStoreKey('myLedgerData'), JSON.stringify(finalData));
-          localStorage.setItem(getStoreKey('myLedgerSyncInfo'), `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料)`);
-          loadLocalData(); 
-        }
+      .then(res => res.text()) // 先接成純文字
+      .then(text => {
+        try {
+          const res = JSON.parse(text);
+          if (res.status === 'success') {
+            const targetLabel = targetYear + "年 " + targetMonth;
+            let finalData = JSON.parse(localStorage.getItem(getStoreKey('myLedgerData')) || '[]').filter(item => item.month !== targetLabel).concat(res.data);
+            localStorage.setItem(getStoreKey('myLedgerData'), JSON.stringify(finalData));
+            localStorage.setItem(getStoreKey('myLedgerSyncInfo'), `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料)`);
+            loadLocalData(); 
+          }
+        } catch(e) { console.warn('自動同步略過，回傳格式非 JSON'); }
       });
     }
 
@@ -553,59 +567,91 @@
       .finally(() => document.getElementById('addLoading').style.display = 'none');
     }
 
+    // ======== 重新設計的同步與排隊機制 ========
     function syncData(mode) {
       const currentTwYear = new Date().getFullYear() - 1911;
-      let targetYear = "";
-      let targetMonth = "";
+      let queue = [];
       
-      // 🌟 修正：精準判斷不同的同步模式，並給予對應的參數
+      // 1. 建立抓取任務佇列 (Queue)
       if (mode === 'this_month') {
-        targetYear = currentTwYear.toString();
-        targetMonth = (new Date().getMonth() + 1) + "月";
+        queue.push({ year: currentTwYear.toString(), month: (new Date().getMonth() + 1) + "月" });
         document.getElementById('syncStatus').innerText = "🔄 正在極速更新本月...";
       } else if (mode === 'custom') {
-        targetYear = document.getElementById('syncYearSelect').value;
-        targetMonth = document.getElementById('syncMonthSelect').value;
-        document.getElementById('syncStatus').innerText = "🔄 抓取資料中...";
+        let y = document.getElementById('syncYearSelect').value;
+        let m = document.getElementById('syncMonthSelect').value;
+        if (m === "全部") {
+          // 拆成 12 個月的獨立任務
+          for (let i = 1; i <= 12; i++) queue.push({ year: y, month: i + "月" });
+        } else {
+          queue.push({ year: y, month: m });
+        }
+        document.getElementById('syncStatus').innerText = "🔄 任務建立中...";
       } else if (mode === 'all') {
-        // 歷年全抓：故意傳送空字串，讓後端不要做任何年份與月份的過濾
-        targetYear = "";
-        targetMonth = "";
-        document.getElementById('syncStatus').innerText = "🔄 完整同步中 (歷年資料全抓，請耐心等候)...";
+        if(!confirm("歷年完整同步將會逐月下載所有資料，可能需要 1~2 分鐘，確定要執行嗎？")) return;
+        // 把 102 年到今年的 12 個月全部拆成獨立任務
+        for (let y = currentTwYear; y >= 102; y--) {
+          for (let i = 1; i <= 12; i++) queue.push({ year: y.toString(), month: i + "月" });
+        }
+        document.getElementById('syncStatus').innerText = "🔄 完整同步排程中，請保持畫面開啟...";
       }
       
+      // 2. 開始執行佇列
+      executeSyncQueue(queue, mode);
+    }
+
+    // 負責逐一發送請求，避免手機過載崩潰
+    async function executeSyncQueue(queue, mode) {
       document.getElementById('searchLoading').style.display = 'block';
       const startTime = performance.now();
       
-      fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear, targetMonth, ledger: currentLedger }) })
-      .then(res => res.json()).then(res => {
-        if (res.status === 'success') {
-          const duration = ((performance.now() - startTime) / 1000).toFixed(1);
-          let finalData = [];
+      // 決定基礎資料 (如果是全部同步就清空，否則載入舊資料)
+      let finalData = mode === 'all' ? [] : JSON.parse(localStorage.getItem(getStoreKey('myLedgerData')) || '[]');
+      
+      // 把這次要更新的對象從舊資料中先剃除
+      if (mode !== 'all') {
+        queue.forEach(q => {
+          finalData = finalData.filter(item => item.month !== (q.year + "年 " + q.month));
+        });
+      }
+
+      // 逐一發送 API 請求，手機完全不會卡死
+      for (let i = 0; i < queue.length; i++) {
+        let q = queue[i];
+        document.getElementById('searchLoading').innerText = `⏳ 正在抓取 ${q.year}年 ${q.month} (${i + 1}/${queue.length})...`;
+        
+        try {
+          let res = await fetch(apiUrl, { 
+            method: "POST", 
+            body: JSON.stringify({ action: "sync_custom", targetYear: q.year, targetMonth: q.month, ledger: currentLedger }) 
+          });
           
-          if (mode === 'all') {
-            // 完整同步：直接拿雲端資料完全覆蓋本地快取
-            finalData = res.data;
-          } else {
-            // 局部同步：把舊資料留下，但濾掉這次要更新的那個年月，再接上新資料
-            let oldData = JSON.parse(localStorage.getItem(getStoreKey('myLedgerData')) || '[]');
-            if (targetMonth === "全部") {
-               oldData = oldData.filter(item => !item.month.startsWith(targetYear + "年"));
-            } else {
-               oldData = oldData.filter(item => item.month !== (targetYear + "年 " + targetMonth));
-            }
-            finalData = oldData.concat(res.data);
+          // 🌟 終極防呆：先轉成純文字，避免直接 json() 碰到 HTML 導致整個 App 當機
+          let text = await res.text(); 
+          let json;
+          try {
+            json = JSON.parse(text);
+          } catch (e) {
+            console.warn(`[略過] ${q.year}年 ${q.month} 無法解析 (可能是當年度還沒建立該月份):`, text.substring(0, 50));
+            continue; // 如果出錯或遇到空網頁，直接略過，不影響其他月份！
           }
-          
-          localStorage.setItem(getStoreKey('myLedgerData'), JSON.stringify(finalData));
-          localStorage.setItem(getStoreKey('myLedgerSyncInfo'), `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料，耗時 ${duration} 秒)`);
-          
-          alert(`✅ 同步完成！\n本次耗時 ${duration} 秒。`);
-          loadLocalData(); 
-        } else alert("❌ 同步錯誤：" + res.message);
-      })
-      .catch(err => alert("❌ 錯誤：" + err.message))
-      .finally(() => document.getElementById('searchLoading').style.display = 'none');
+
+          if (json.status === 'success' && json.data.length > 0) {
+            finalData = finalData.concat(json.data);
+          }
+        } catch (err) {
+          console.error(`網路錯誤 ${q.year} ${q.month}:`, err);
+        }
+      }
+
+      // 儲存最終結果
+      const duration = ((performance.now() - startTime) / 1000).toFixed(1);
+      localStorage.setItem(getStoreKey('myLedgerData'), JSON.stringify(finalData));
+      localStorage.setItem(getStoreKey('myLedgerSyncInfo'), `上次同步時間：${new Date().toLocaleString()}\n(共有 ${finalData.length} 筆資料，耗時 ${duration} 秒)`);
+      
+      alert(`✅ 同步完成！\n共更新了 ${finalData.length} 筆資料。`);
+      loadLocalData(); 
+      document.getElementById('searchLoading').style.display = 'none';
+      document.getElementById('syncStatus').innerText = localStorage.getItem(getStoreKey('myLedgerSyncInfo'));
     }
 
     function loadLocalData() {
@@ -647,7 +693,8 @@
         resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
       } else {
         resultBox.innerHTML = filtered.map(item => {
-          const safeDetail = item.detail.replace(/'/g, "\\'"); 
+          // 🌟 修正：同時處理單引號與雙引號的跳脫問題，避免按鈕的 HTML 屬性被截斷
+          const safeDetail = item.detail.replace(/'/g, "\\'").replace(/"/g, "&quot;"); 
           return `
           <div class="result-item" style="display: flex; justify-content: space-between; align-items: center;">
             <div style="flex: 1;">
@@ -730,18 +777,15 @@
         totalAmount += amt;
       });
 
-      // 🌟 新增防呆機制：如果該月總支出為 0 (完全沒資料)
       if (totalAmount === 0) {
         document.getElementById('chartTotalInfo').innerText = "該月份尚無記帳資料 🌵";
-        // 如果畫面上原本有圖表，就把它清除，避免殘留上個月的畫面
         if (expenseChartInstance) { 
           expenseChartInstance.destroy(); 
           expenseChartInstance = null;
         }
-        return; // 提早結束，不執行下方畫圖表的程式
+        return; 
       }
 
-      // 如果有資料，正常顯示總金額與圖表
       document.getElementById('chartTotalInfo').innerText = `總支出: $ ${totalAmount.toLocaleString()} 元`;
 
       const labels = Object.keys(categoryTotals);
