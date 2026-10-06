@@ -446,7 +446,7 @@
       const uniqueItems = new Set();
       localLedgerData.forEach(item => {
         if (item.detail) {
-          let cleanName = item.detail.trim().replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '').replace(/[\s\-$]*(NT\$?\vert{}\$)?\d+(?:\.\d+)?[元\s]*$/i, '').trim();
+          let cleanName = item.detail.trim().replace(/^(\d{2,3}\/)?\d{1,2}\/\d{1,2}\s*/, '').replace(/[\s\-$]*(NT\$?|\$)?\d+(?:\.\d+)?[元\s]*$/i, '').trim();
           if (cleanName) uniqueItems.add(cleanName);
         }
       });
@@ -730,6 +730,18 @@
         totalAmount += amt;
       });
 
+      // 🌟 新增防呆機制：如果該月總支出為 0 (完全沒資料)
+      if (totalAmount === 0) {
+        document.getElementById('chartTotalInfo').innerText = "該月份尚無記帳資料 🌵";
+        // 如果畫面上原本有圖表，就把它清除，避免殘留上個月的畫面
+        if (expenseChartInstance) { 
+          expenseChartInstance.destroy(); 
+          expenseChartInstance = null;
+        }
+        return; // 提早結束，不執行下方畫圖表的程式
+      }
+
+      // 如果有資料，正常顯示總金額與圖表
       document.getElementById('chartTotalInfo').innerText = `總支出: $ ${totalAmount.toLocaleString()} 元`;
 
       const labels = Object.keys(categoryTotals);
