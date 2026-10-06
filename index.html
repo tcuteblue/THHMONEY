@@ -555,13 +555,23 @@
 
     function syncData(mode) {
       const currentTwYear = new Date().getFullYear() - 1911;
-      const targetYear = mode === 'this_month' ? currentTwYear.toString() : document.getElementById('syncYearSelect').value;
-      const targetMonth = mode === 'this_month' ? (new Date().getMonth() + 1) + "月" : document.getElementById('syncMonthSelect').value;
+      let targetYear = "";
+      let targetMonth = "";
       
-      if (mode === 'all') {
-        document.getElementById('syncStatus').innerText = "🔄 完整同步中 (歷年資料全抓，請耐心等候)...";
-      } else {
+      // 🌟 修正：精準判斷不同的同步模式，並給予對應的參數
+      if (mode === 'this_month') {
+        targetYear = currentTwYear.toString();
+        targetMonth = (new Date().getMonth() + 1) + "月";
+        document.getElementById('syncStatus').innerText = "🔄 正在極速更新本月...";
+      } else if (mode === 'custom') {
+        targetYear = document.getElementById('syncYearSelect').value;
+        targetMonth = document.getElementById('syncMonthSelect').value;
         document.getElementById('syncStatus').innerText = "🔄 抓取資料中...";
+      } else if (mode === 'all') {
+        // 歷年全抓：故意傳送空字串，讓後端不要做任何年份與月份的過濾
+        targetYear = "";
+        targetMonth = "";
+        document.getElementById('syncStatus').innerText = "🔄 完整同步中 (歷年資料全抓，請耐心等候)...";
       }
       
       document.getElementById('searchLoading').style.display = 'block';
@@ -574,8 +584,10 @@
           let finalData = [];
           
           if (mode === 'all') {
+            // 完整同步：直接拿雲端資料完全覆蓋本地快取
             finalData = res.data;
           } else {
+            // 局部同步：把舊資料留下，但濾掉這次要更新的那個年月，再接上新資料
             let oldData = JSON.parse(localStorage.getItem(getStoreKey('myLedgerData')) || '[]');
             if (targetMonth === "全部") {
                oldData = oldData.filter(item => !item.month.startsWith(targetYear + "年"));
