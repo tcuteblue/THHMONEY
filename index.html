@@ -473,28 +473,22 @@
       };
       const a = document.createElement('a'); 
       a.href = URL.createObjectURL(new Blob([JSON.stringify(backupData)], {type: 'application/json'})); 
-      // 根據當前帳本決定下載檔名
+      
+      // 🌟 獲取精準的本地時間，格式化為 YYYYMMDD_HHMMSS
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const timeStamp = `${yyyy}${mm}${dd}_${hh}${min}${ss}`;
+
+      // 根據當前帳本決定下載檔名，並附上時間戳記
       const prefix = currentLedger === 'home' ? '家用雲帳本備份' : '工作室帳本備份';
-      a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `${prefix}_${timeStamp}.json`;
+      
       a.click();
-    }
-    
-    function importBackup(event) {
-      const file = event.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const bd = JSON.parse(e.target.result);
-          if(bd.ledgerData) localStorage.setItem(getStoreKey('myLedgerData'), bd.ledgerData); 
-          if(bd.syncInfo) localStorage.setItem(getStoreKey('myLedgerSyncInfo'), bd.syncInfo);
-          if(bd.customTags) localStorage.setItem(getStoreKey('myCustomTags'), bd.customTags); 
-          if(bd.customCategories) localStorage.setItem(getStoreKey('myCustomCategories'), bd.customCategories);
-          
-          alert(`✅ ${currentLedger === 'home' ? '家用雲帳本' : '工作室帳本'}備份檔匯入成功！`); 
-          loadLocalData(); loadQuickTags(); loadCategories();
-        } catch(err) { alert("❌ 匯入失敗：檔案格式錯誤。"); }
-      };
-      reader.readAsText(file);
     }
 
     // ======== 初始化與頁面切換 ========
