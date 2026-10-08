@@ -464,32 +464,67 @@
     }
 
     // ======== 備份與還原 ========
-    function exportBackup() {
-      const backupData = { 
-        ledgerData: localStorage.getItem(getStoreKey('myLedgerData'))||'[]', 
-        syncInfo: localStorage.getItem(getStoreKey('myLedgerSyncInfo'))||'', 
-        customTags: localStorage.getItem(getStoreKey('myCustomTags'))||defaultTags, 
-        customCategories: localStorage.getItem(getStoreKey('myCustomCategories'))||defaultCategories 
-      };
-      const a = document.createElement('a'); 
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(backupData)], {type: 'application/json'})); 
-      
-      // 🌟 獲取精準的本地時間，格式化為 YYYYMMDD_HHMMSS
-      const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      const hh = String(now.getHours()).padStart(2, '0');
-      const min = String(now.getMinutes()).padStart(2, '0');
-      const ss = String(now.getSeconds()).padStart(2, '0');
-      const timeStamp = `${yyyy}${mm}${dd}_${hh}${min}${ss}`;
+    // ======== 備份與還原 ========
+    // 手動匯出與自動匯出共用同一個備份產生器。
+    function exportBackup(options = {}) {
+      const silent = options.silent === true;
+      try {
+        const backupData = {
+          ledgerData: localStorage.getItem(getStoreKey('myLedgerData')) || '[]',
+          syncInfo: localStorage.getItem(getStoreKey('myLedgerSyncInfo')) || '',
+          customTags: localStorage.getItem(getStoreKey('myCustomTags')) || defaultTags,
+          customCategories: localStorage.getItem(getStoreKey('myCustomCategories')) || defaultCategories
+        };
 
-      // 根據當前帳本決定下載檔名，並附上時間戳記
-      const prefix = currentLedger === 'home' ? '家用雲帳本備份' : '工作室帳本備份';
-      a.download = `${prefix}_${timeStamp}.json`;
-      
-      a.click();
+        const json = JSON.stringify(backupData);
+        if (typeof json !== 'string') throw new Error('無法整理備份資料');
+
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        const timeStamp = `${yyyy}${mm}${dd}_${hh}${min}${ss}`;
+        const prefix = currentLedger === 'home' ? '家用雲帳本備份' : '工作室帳本備份';
+
+        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${prefix}_${timeStamp}.json`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        // 延後釋放 Blob URL，避免部分瀏覽器尚未開始下載就失效。
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        if (!silent) alert('✅ 備份檔已開始匯出！');
+        return true;
+      } catch (err) {
+        console.error('備份匯出失敗：', err);
+        if (!silent) alert('❌ 備份匯出失敗：' + (err.message || '未知錯誤'));
+        return false;
+      }
     }
+
+    // 自動備份：切換到背景、切換分頁或離開頁面時嘗試匯出。
+    // 瀏覽器可能限制頁面關閉期間的下載，因此仍建議定期手動匯出。
+    let lastAutoBackupAt = 0;
+    function autoExportBackup() {
+      const now = Date.now();
+      // visibilitychange 與 pagehide 可能連續觸發，避免同一次離開重複下載。
+      if (now - lastAutoBackupAt < 5000) return;
+      lastAutoBackupAt = now;
+      exportBackup({ silent: true });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') autoExportBackup();
+    });
+    window.addEventListener('pagehide', autoExportBackup);
 
     // ======== 初始化與頁面切換 ========
     window.onload = function() {
