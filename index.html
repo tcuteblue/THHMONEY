@@ -464,10 +464,17 @@
     }
 
     // ======== 備份與還原 ========
-    // ======== 備份與還原 ========
     // 手動匯出與自動匯出共用同一個備份產生器。
     function exportBackup(options = {}) {
       const silent = options.silent === true;
+      
+      // 🌟 加入匯出前的確認提示 (若是背景自動備份則跳過提示)
+      if (!silent) {
+        if (!confirm(`確定要將目前的「${currentLedger === 'home' ? '家用雲帳本' : '工作室帳本'}」下載為備份檔嗎？`)) {
+          return false;
+        }
+      }
+
       try {
         const backupData = {
           ledgerData: localStorage.getItem(getStoreKey('myLedgerData')) || '[]',
@@ -499,15 +506,52 @@
         a.click();
         a.remove();
 
-        // 延後釋放 Blob URL，避免部分瀏覽器尚未開始下載就失效。
         setTimeout(() => URL.revokeObjectURL(url), 30000);
-        if (!silent) alert('✅ 備份檔已開始匯出！');
+        if (!silent) alert('✅ 備份檔已成功開始下載！');
         return true;
       } catch (err) {
         console.error('備份匯出失敗：', err);
         if (!silent) alert('❌ 備份匯出失敗：' + (err.message || '未知錯誤'));
         return false;
       }
+    }
+
+    // 🌟 新增：匯入備份功能與覆蓋提示
+    function importBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // 匯入前的警告提示
+      const ledgerName = currentLedger === 'home' ? '家用雲帳本' : '工作室帳本';
+      if (!confirm(`確定要匯入備份檔「${file.name}」嗎？\n\n⚠️ 警告：這將會完全覆蓋目前設備上的【${ledgerName}】資料與設定！`)) {
+        event.target.value = ''; // 使用者取消則清空選擇，以便下次能選同一個檔案
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+
+          // 簡單驗證檔案格式是否正確
+          if (data.ledgerData !== undefined) {
+            // 寫入 LocalStorage
+            localStorage.setItem(getStoreKey('myLedgerData'), typeof data.ledgerData === 'string' ? data.ledgerData : JSON.stringify(data.ledgerData));
+            if (data.syncInfo) localStorage.setItem(getStoreKey('myLedgerSyncInfo'), data.syncInfo);
+            if (data.customTags) localStorage.setItem(getStoreKey('myCustomTags'), data.customTags);
+            if (data.customCategories) localStorage.setItem(getStoreKey('myCustomCategories'), data.customCategories);
+
+            alert('✅ 備份資料已成功匯入！系統將重新載入以套用最新資料。');
+            location.reload(); // 重新載入畫面以刷新所有狀態與圖表
+          } else {
+            alert('❌ 匯入失敗：這似乎不是有效的帳本備份檔！');
+          }
+        } catch (err) {
+          alert('❌ 匯入失敗：無法解析檔案內容！\n錯誤：' + err.message);
+        }
+        event.target.value = ''; // 成功或失敗後都清除 input 狀態
+      };
+      reader.readAsText(file);
     }
 
     // 自動備份：切換到背景、切換分頁或離開頁面時嘗試匯出。
