@@ -79,17 +79,34 @@
       display: flex; flex-direction: column; align-items: center; font-size: 16px; 
     }
     
+    /* 🌟 重構 Header 佈局 (Grid 網格，絕對防重疊) */
     .app-header {
-      background-color: #34A853; color: white; text-align: center;
-      padding: 18px 0; font-size: 28px; font-weight: bold; letter-spacing: 2px;
+      background-color: #34A853; color: white;
+      padding: 15px 0;
       position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      width: 100%; display: flex; justify-content: center; align-items: center; transition: background-color 0.3s;
+      width: 100%; transition: background-color 0.3s;
+      display: grid;
+      grid-template-columns: 85px 1fr 85px; /* 左右保留空間，保證中間絕對置中 */
+      align-items: center;
+    }
+
+    #headerTitle {
+      grid-column: 2; /* 鎖定在正中間網格 */
+      text-align: center;
+      font-size: 22px; /* 稍微縮小字體以適應手機螢幕 */
+      font-weight: bold; letter-spacing: 1px;
+      white-space: nowrap;
     }
 
     .switch-btn {
-      position: absolute; right: 15px; background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.5); color: white; padding: 6px 12px;
-      border-radius: 20px; font-size: 14px; cursor: pointer; font-weight: bold; backdrop-filter: blur(5px);
+      grid-column: 3; /* 鎖定在最右邊網格 */
+      justify-self: end;
+      margin-right: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.5); color: white; 
+      padding: 6px 10px;
+      border-radius: 20px; font-size: 13px;
+      cursor: pointer; font-weight: bold; backdrop-filter: blur(5px);
     }
     .switch-btn:active { background: rgba(255, 255, 255, 0.4); }
 
@@ -131,7 +148,7 @@
     /* 🌟 全域狀態提示 */
     .global-loading { display: none; text-align: center; margin-bottom: 15px; font-weight: bold; color: #E02020; font-size: 16px; }
 
-    /* 🌟 查詢列表 (高度提升到 65vh，底部預留給浮動列) */
+    /* 🌟 查詢列表 */
     .result-box { margin-top: 15px; max-height: 65vh; overflow-y: auto; padding-bottom: 80px; }
     .result-item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 18px; transition: 0.1s; }
     .result-item:active { transform: scale(0.98); background: #eef2f5; }
@@ -221,7 +238,7 @@
       
       <button onclick="submitData()">新增帳目</button>
 
-      <!-- 🌟 將同步與備份區塊搬移至新增頁面底部 -->
+      <!-- 🌟 同步與備份區塊 -->
       <hr style="border: 0; height: 1px; background: #ddd; margin: 40px 0 20px 0;">
       
       <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #eee;">
@@ -415,7 +432,6 @@
     let selectedItemsMap = new Map(); // 記錄 uniqueKey -> amount
 
     function startPress(e, domId, uniqueKey, amount) {
-      // 避免多點觸控或滑動誤判
       isLongPress = false;
       pressTimer = setTimeout(() => {
         isLongPress = true;
@@ -433,14 +449,12 @@
     }
 
     function itemClick(e, domId, uniqueKey, itemStr) {
-      if (isLongPress) return; // 如果剛剛觸發了長按，則取消本次的一般點擊行為
+      if (isLongPress) return; 
       
       if (multiSelectMode) {
-        // 多選模式下，一般點擊也是進行勾選切換
         const amt = parseFloat(JSON.parse(decodeURIComponent(itemStr)).amount.toString().replace(/,/g, '')) || 0;
         toggleSelection(domId, uniqueKey, amt);
       } else {
-        // 一般模式下開啟編輯面板
         openEditModal(itemStr);
       }
     }
@@ -474,7 +488,7 @@
       multiSelectMode = false;
       selectedItemsMap.clear();
       document.getElementById('multiSelectBar').style.display = 'none';
-      filterLocalData(); // 重新渲染以清除所有高亮樣式
+      filterLocalData(); 
     }
 
 
@@ -798,7 +812,6 @@
           const domId = `result-item-${index}`;
           const amt = parseFloat(item.amount.toString().replace(/,/g, '')) || 0;
           
-          // 為了確保切換搜尋關鍵字時，選取的項目依然亮起，我們使用複合字串當作唯一識別碼
           const uniqueKey = `${item.month}|${item.category}|${item.detail}|${item.amount}`;
           const isSelected = selectedItemsMap.has(uniqueKey);
           
