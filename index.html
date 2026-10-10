@@ -166,7 +166,8 @@
 
     .loading { display: none; text-align: center; margin-top: 15px; color: #666; font-size: 16px; }
     .result-box { margin-top: 20px; max-height: 400px; overflow-y: auto; }
-    .result-item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 18px; }
+    .result-item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 18px; transition: 0.2s; }
+    .result-item:active { transform: scale(0.98); background: #eef2f5; }
     .result-amount { font-weight: bold; color: #E02020; font-size: 22px; margin-top: 8px; }
     .result-category { font-size: 14px; color: white; background: #34A853; padding: 2px 8px; border-radius: 12px; margin-right: 8px; display: inline-block; }
     .result-month { font-size: 16px; color: #888; margin-bottom: 6px; }
@@ -228,7 +229,7 @@
       <select id="categoryInput"></select>
       
       <label>💰 金額 (元)</label>
-      <input type="text" id="amountInput" placeholder="🧮 點擊輸入金額..." onclick="openCalcModal()" readonly style="cursor: pointer; background: #F4F8FF; color: #007AFF; font-weight: bold; text-align: center; border-color: #007AFF;">
+      <input type="text" id="amountInput" placeholder="🧮 點擊輸入金額..." onclick="openCalcModal('amountInput')" readonly style="cursor: pointer; background: #F4F8FF; color: #007AFF; font-weight: bold; text-align: center; border-color: #007AFF;">
       
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
         <label style="margin-top: 0;">📝 項目說明</label>
@@ -244,7 +245,7 @@
 
     <!-- 🔍 查詢帳目與備份管理 -->
     <div id="searchView" class="view-section">
-      <label>🔍 萬用搜尋 (即時篩選)</label>
+      <label>🔍 萬用搜尋 (點擊紀錄可編輯/刪除)</label>
       <input type="text" id="searchInput" placeholder="日期、品名或金額..." oninput="filterLocalData()">
       
       <button class="sync-btn" style="background: #007AFF;" onclick="syncData('this_month')">📅 本月更新 (極速)</button>
@@ -269,7 +270,7 @@
       <button class="sync-btn" style="background: #FF9500; margin-top: 0; margin-bottom: 20px;" onclick="syncData('all')">🔄 完整同步 (歷年全抓，適合新設備)</button>
 
       <div class="sync-status" id="syncStatus">尚未同步資料</div>
-      <div class="loading" id="searchLoading">⏳ 正在與雲端同步，請稍候...</div>
+      <div class="loading" id="searchLoading">⏳ 正在與雲端連線，請稍候...</div>
       <div class="result-box" id="resultBox"></div>
 
       <hr style="border: 0; height: 1px; background: #ddd; margin: 20px 0;">
@@ -290,6 +291,36 @@
         <canvas id="expenseChart"></canvas>
       </div>
       <div id="chartTotalInfo" style="text-align: center; margin-top: 15px; font-size: 22px; font-weight: bold; color: #333;"></div>
+    </div>
+  </div>
+
+  <!-- ✏️ 編輯/刪除紀錄面板 (全新功能) -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal-card">
+      <div class="modal-title">✏️ 編輯或刪除紀錄</div>
+      <input type="hidden" id="editMonth">
+      <input type="hidden" id="editOldCategory">
+      <input type="hidden" id="editOldDetail">
+      <input type="hidden" id="editOldAmount">
+
+      <div style="text-align: center; color: #888; margin-bottom: 15px; font-size: 18px; font-weight: bold;" id="editMonthDisplay"></div>
+
+      <label style="margin-top: 0;">🏷️ 分類</label>
+      <select id="editCategoryInput"></select>
+
+      <label>📝 項目說明 (含日期與備註)</label>
+      <input type="text" id="editDetailInput">
+
+      <label>💰 金額 (元)</label>
+      <input type="text" id="editAmountInput" readonly style="cursor: pointer; background: #F4F8FF; color: #007AFF; font-weight: bold; text-align: center; border-color: #007AFF;" onclick="openCalcModal('editAmountInput')">
+
+      <div class="modal-actions" style="margin-top: 25px;">
+        <button class="btn-cancel" onclick="closeEditModal()">取消</button>
+        <button style="background: #34A853;" onclick="saveEditRecord()">💾 儲存修改</button>
+      </div>
+      
+      <hr style="border: 0; height: 1px; background: #eee; margin: 20px 0;">
+      <button style="background: #FF3B30; margin-top: 0; width: 100%;" onclick="confirmDeleteFromEdit()">🗑️ 刪除此筆紀錄</button>
     </div>
   </div>
 
@@ -352,7 +383,7 @@
     let expenseChartInstance = null; 
 
     // ======== 🌟 帳本切換與狀態管理 ========
-    let currentLedger = 'home'; // 預設永遠是家用，重新整理即重置
+    let currentLedger = 'home'; 
 
     function getStoreKey(keyName) {
       return currentLedger === 'home' ? keyName : keyName + '_studio';
@@ -464,11 +495,8 @@
     }
 
     // ======== 備份與還原 ========
-    // 手動匯出與自動匯出共用同一個備份產生器。
     function exportBackup(options = {}) {
       const silent = options.silent === true;
-      
-      // 🌟 加入匯出前的確認提示 (若是背景自動備份則跳過提示)
       if (!silent) {
         if (!confirm(`確定要將目前的「${currentLedger === 'home' ? '家用雲帳本' : '工作室帳本'}」下載為備份檔嗎？`)) {
           return false;
@@ -516,15 +544,13 @@
       }
     }
 
-    // 🌟 新增：匯入備份功能與覆蓋提示
     function importBackup(event) {
       const file = event.target.files[0];
       if (!file) return;
 
-      // 匯入前的警告提示
       const ledgerName = currentLedger === 'home' ? '家用雲帳本' : '工作室帳本';
       if (!confirm(`確定要匯入備份檔「${file.name}」嗎？\n\n⚠️ 警告：這將會完全覆蓋目前設備上的【${ledgerName}】資料與設定！`)) {
-        event.target.value = ''; // 使用者取消則清空選擇，以便下次能選同一個檔案
+        event.target.value = ''; 
         return;
       }
 
@@ -532,37 +558,40 @@
       reader.onload = function(e) {
         try {
           const data = JSON.parse(e.target.result);
-
-          // 簡單驗證檔案格式是否正確
           if (data.ledgerData !== undefined) {
-            // 寫入 LocalStorage
             localStorage.setItem(getStoreKey('myLedgerData'), typeof data.ledgerData === 'string' ? data.ledgerData : JSON.stringify(data.ledgerData));
             if (data.syncInfo) localStorage.setItem(getStoreKey('myLedgerSyncInfo'), data.syncInfo);
             if (data.customTags) localStorage.setItem(getStoreKey('myCustomTags'), data.customTags);
             if (data.customCategories) localStorage.setItem(getStoreKey('myCustomCategories'), data.customCategories);
 
             alert('✅ 備份資料已成功匯入！系統將重新載入以套用最新資料。');
-            location.reload(); // 重新載入畫面以刷新所有狀態與圖表
+            location.reload(); 
           } else {
             alert('❌ 匯入失敗：這似乎不是有效的帳本備份檔！');
           }
         } catch (err) {
           alert('❌ 匯入失敗：無法解析檔案內容！\n錯誤：' + err.message);
         }
-        event.target.value = ''; // 成功或失敗後都清除 input 狀態
+        event.target.value = ''; 
       };
       reader.readAsText(file);
     }
 
-    // 自動備份：切換到背景、切換分頁或離開頁面時嘗試匯出。
-    // 瀏覽器可能限制頁面關閉期間的下載，因此仍建議定期手動匯出。
     let lastAutoBackupAt = 0;
     function autoExportBackup() {
       const now = Date.now();
-      // visibilitychange 與 pagehide 可能連續觸發，避免同一次離開重複下載。
       if (now - lastAutoBackupAt < 5000) return;
       lastAutoBackupAt = now;
-      exportBackup({ silent: true });
+      
+      // 🌟 背景自動備份至 Google Drive
+      const backupData = { 
+        ledgerData: localStorage.getItem(getStoreKey('myLedgerData')) || '[]', 
+        syncInfo: localStorage.getItem(getStoreKey('myLedgerSyncInfo')) || '', 
+        customTags: localStorage.getItem(getStoreKey('myCustomTags')) || defaultTags, 
+        customCategories: localStorage.getItem(getStoreKey('myCustomCategories')) || defaultCategories 
+      };
+      const payload = JSON.stringify({ action: 'auto_backup', ledger: currentLedger, data: backupData });
+      navigator.sendBeacon(apiUrl, payload);
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -584,7 +613,7 @@
 
     function autoSyncThisMonth(targetYear, targetMonth) {
       fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear, targetMonth, ledger: currentLedger }) })
-      .then(res => res.text()) // 先接成純文字
+      .then(res => res.text()) 
       .then(text => {
         try {
           const res = JSON.parse(text);
@@ -640,7 +669,6 @@
       .finally(() => document.getElementById('addLoading').style.display = 'none');
     }
 
-    // ======== 重新設計的同步與排隊機制 (半年批次版) ========
     function syncData(mode) {
       const currentTwYear = new Date().getFullYear() - 1911;
       let queue = [];
@@ -652,7 +680,6 @@
         let y = document.getElementById('syncYearSelect').value;
         let m = document.getElementById('syncMonthSelect').value;
         if (m === "全部") {
-          // 🌟 指定年份全部：拆成上半年、下半年兩次
           queue.push({ year: y, month: ["1月", "2月", "3月", "4月", "5月", "6月"] });
           queue.push({ year: y, month: ["7月", "8月", "9月", "10月", "11月", "12月"] });
         } else {
@@ -661,7 +688,6 @@
         document.getElementById('syncStatus').innerText = "🔄 任務建立中...";
       } else if (mode === 'all') {
         if(!confirm("歷年完整同步將以「半年為單位」批次下載資料，約需 1 分鐘，確定要執行嗎？")) return;
-        // 🌟 歷年全抓：每年拆成 2 次，保證速度快且絕對不會被手機斷線
         for (let y = currentTwYear; y >= 102; y--) {
           queue.push({ year: y.toString(), month: ["1月", "2月", "3月", "4月", "5月", "6月"] });
           queue.push({ year: y.toString(), month: ["7月", "8月", "9月", "10月", "11月", "12月"] });
@@ -678,7 +704,6 @@
       
       let finalData = mode === 'all' ? [] : JSON.parse(localStorage.getItem(getStoreKey('myLedgerData')) || '[]');
       
-      // 把這次要更新的對象從舊資料中先剃除 (支援陣列過濾)
       if (mode !== 'all') {
         queue.forEach(q => {
           if (Array.isArray(q.month)) {
@@ -693,7 +718,6 @@
 
       for (let i = 0; i < queue.length; i++) {
         let q = queue[i];
-        // 🌟 動態顯示：如果傳陣列，就顯示上半年/下半年
         let monthLabel = Array.isArray(q.month) ? (q.month[0] === '1月' ? '上半年' : '下半年') : q.month;
         document.getElementById('searchLoading').innerText = `⏳ 正在抓取 ${q.year}年 ${monthLabel} (${i + 1}/${queue.length})...`;
         
@@ -769,27 +793,108 @@
         resultBox.innerHTML = '<div class="result-item">找不到符合的紀錄 🥲</div>';
       } else {
         resultBox.innerHTML = filtered.map(item => {
-          // 🌟 修正：同時處理單引號與雙引號的跳脫問題，避免按鈕的 HTML 屬性被截斷
-          const safeDetail = item.detail.replace(/'/g, "\\'").replace(/"/g, "&quot;"); 
+          const safeItemStr = encodeURIComponent(JSON.stringify(item)); 
+          // 🌟 清單變成純粹的可點擊區塊，移除紅色按鈕
           return `
-          <div class="result-item" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="flex: 1;">
+          <div class="result-item" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="openEditModal('${safeItemStr}')">
+            <div style="flex: 1; padding-right: 10px;">
               <div class="result-month">📍 ${item.month}</div>
-              <div style="font-size: 18px;">
+              <div style="font-size: 18px; line-height: 1.4;">
                 ${item.category ? `<span class="result-category">${item.category}</span>` : ''} 
                 ${item.detail}
               </div>
-              <div class="result-amount">$ ${item.amount}</div>
             </div>
-            <div style="padding-left: 10px;">
-               <button style="width: auto; padding: 12px 18px; margin-top: 0; background: #FF3B30; font-size: 20px;" 
-                 onclick="deleteRecord('${item.month}', '${item.category}', '${safeDetail}', '${item.amount}')">
-                 🗑️
-               </button>
-            </div>
+            <div class="result-amount" style="margin-top: 0; text-align: right; white-space: nowrap;">$ ${item.amount}</div>
           </div>
         `}).join('');
       }
+    }
+
+    // ======== 🌟 全新功能：編輯與刪除面板 ========
+    function openEditModal(itemStr) {
+      const item = JSON.parse(decodeURIComponent(itemStr));
+      
+      // 紀錄原本的值作為定位依據
+      document.getElementById('editMonth').value = item.month;
+      document.getElementById('editOldCategory').value = item.category;
+      document.getElementById('editOldDetail').value = item.detail;
+      document.getElementById('editOldAmount').value = item.amount;
+
+      document.getElementById('editMonthDisplay').innerText = `📍 ${item.month}`;
+      document.getElementById('editDetailInput').value = item.detail;
+      document.getElementById('editAmountInput').value = item.amount;
+
+      // 動態載入分類選單
+      const categories = (localStorage.getItem(getStoreKey('myCustomCategories')) || defaultCategories).split(',').filter(t=>t.trim()!=='');
+      const select = document.getElementById('editCategoryInput');
+      select.innerHTML = '';
+      categories.forEach(cat => select.appendChild(new Option(cat, cat)));
+      select.value = item.category;
+
+      document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    function saveEditRecord() {
+      const data = {
+        action: 'edit',
+        ledger: currentLedger,
+        month: document.getElementById('editMonth').value,
+        oldCategory: document.getElementById('editOldCategory').value,
+        oldDetail: document.getElementById('editOldDetail').value,
+        oldAmount: document.getElementById('editOldAmount').value,
+        newCategory: document.getElementById('editCategoryInput').value,
+        newDetail: document.getElementById('editDetailInput').value,
+        newAmount: document.getElementById('editAmountInput').value
+      };
+
+      if (!data.newDetail || !data.newAmount) return alert("請完整填寫項目與金額！");
+
+      // 如果甚麼都沒改，就直接關閉
+      if (data.oldCategory === data.newCategory && data.oldDetail === data.newDetail && data.oldAmount === data.newAmount) {
+         closeEditModal();
+         return;
+      }
+
+      document.getElementById('searchLoading').style.display = 'block';
+      document.getElementById('searchLoading').innerText = "⏳ 正在雲端儲存修改...";
+      closeEditModal();
+
+      fetch(apiUrl, { method: "POST", body: JSON.stringify(data) })
+      .then(res => res.json()).then(res => {
+        if (res.status === 'success') {
+          alert("✅ 修改成功！");
+          // 直接更新本地快取，不必重新下載
+          let idx = localLedgerData.findIndex(item => item.month === data.month && item.category === data.oldCategory && item.detail === data.oldDetail && item.amount === data.oldAmount);
+          if (idx !== -1) {
+            localLedgerData[idx].category = data.newCategory;
+            localLedgerData[idx].detail = data.newDetail;
+            localLedgerData[idx].amount = data.newAmount;
+            localStorage.setItem(getStoreKey('myLedgerData'), JSON.stringify(localLedgerData));
+            filterLocalData();
+            updateDatalist();
+          }
+        } else alert("❌ 修改失敗：" + res.message);
+      })
+      .catch(err => alert("❌ 網路錯誤：" + err.message))
+      .finally(() => {
+        document.getElementById('searchLoading').style.display = 'none';
+        document.getElementById('searchLoading').innerText = "⏳ 正在與雲端同步，請稍候...";
+      });
+    }
+
+    // 將刪除功能整合進編輯面板中
+    function confirmDeleteFromEdit() {
+      const month = document.getElementById('editMonth').value;
+      const category = document.getElementById('editOldCategory').value;
+      const detail = document.getElementById('editOldDetail').value;
+      const amount = document.getElementById('editOldAmount').value;
+      
+      closeEditModal();
+      deleteRecord(month, category, detail, amount);
     }
 
     function deleteRecord(month, category, detail, amount) {
@@ -882,12 +987,14 @@
       });
     }
 
-    // ======== 🧮 計算機邏輯 ========
+    // ======== 🧮 計算機邏輯 (升級：支援編輯面板呼叫) ========
     let calcExpression = '';
+    let calcTargetInput = 'amountInput'; // 預設輸入框
 
-    function openCalcModal() {
+    function openCalcModal(targetId = 'amountInput') {
+      calcTargetInput = targetId;
       document.getElementById('calcModal').style.display = 'flex';
-      calcExpression = document.getElementById('amountInput').value || '';
+      calcExpression = document.getElementById(calcTargetInput).value || '';
       updateCalcDisplay();
     }
     function closeCalcModal() { document.getElementById('calcModal').style.display = 'none'; }
@@ -915,7 +1022,9 @@
 
     function confirmCalc() {
       if (/[+\-*/]/.test(calcExpression)) calcEval();
-      if (calcExpression !== '錯誤' && calcExpression !== '') document.getElementById('amountInput').value = calcExpression;
+      if (calcExpression !== '錯誤' && calcExpression !== '') {
+        document.getElementById(calcTargetInput).value = calcExpression;
+      }
       closeCalcModal();
     }
 
