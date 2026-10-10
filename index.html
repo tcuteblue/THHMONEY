@@ -82,7 +82,7 @@
     /* 🌟 重構 Header 佈局 (Grid 網格，絕對防重疊) */
     .app-header {
       background-color: #34A853; color: white;
-      padding: 15px 0;
+      padding: 8px 0; /* 🟢 調整：從原本 15px 縮小為 8px，高度減少約 1/4 */
       position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       width: 100%; transition: background-color 0.3s;
       display: grid;
@@ -514,7 +514,7 @@
     
     function renderModalList() {
       let html = tempEditingItems.length === 0 ? '<div style="text-align:center; color:#999; padding:10px;">(目前沒有項目)</div>' : '';
-      tempEditingItems.forEach((item, i) => html += `<div class="modal-list-item"><span>item</span><spanclass="delete-btn"onclick="removeModalItem({i})">❌</span></div>`);
+      tempEditingItems.forEach((item, i) => html += `<div class="modal-list-item"><span>${item}</span><span class="delete-btn" onclick="removeModalItem(${i})">❌</span></div>`);
       document.getElementById('modalList').innerHTML = html;
     }
     
@@ -584,7 +584,7 @@
         if (typeof json !== 'string') throw new Error('無法整理備份資料');
 
         const now = new Date();
-        const timeStamp = `now.getFullYear(){String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}String(now.getMinutes()).padStart(2,'0'){String(now.getSeconds()).padStart(2, '0')}`;
+        const timeStamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
         const prefix = currentLedger === 'home' ? '家用雲帳本備份' : '工作室帳本備份';
 
         const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
@@ -628,8 +628,6 @@
       };
       reader.readAsText(file);
     }
-
-    // 💡 已徹底刪除會偷跑背景與發送雲端備份的程式碼 (visibilitychange/pagehide)
 
     // ======== 初始化與頁面切換 ========
     window.onload = function() {
@@ -739,7 +737,7 @@
       for (let i = 0; i < queue.length; i++) {
         let q = queue[i];
         let monthLabel = Array.isArray(q.month) ? (q.month[0] === '1月' ? '上半年' : '下半年') : q.month;
-        document.getElementById('globalLoading').innerText = `⏳ 正在抓取 ${q.year}年 monthLabel({i + 1}/${queue.length})...`;
+        document.getElementById('globalLoading').innerText = `⏳ 正在抓取 ${q.year}年 ${monthLabel} (${i + 1}/${queue.length})...`;
         
         try {
           let res = await fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear: q.year, targetMonth: q.month, ledger: currentLedger }) });
@@ -804,7 +802,7 @@
           const domId = `result-item-${index}`;
           const amt = parseFloat(item.amount.toString().replace(/,/g, '')) || 0;
           
-          const uniqueKey = `item.month|{item.category}|item.detail|{item.amount}`;
+          const uniqueKey = `${item.month}|${item.category}|${item.detail}|${item.amount}`;
           const isSelected = selectedItemsMap.has(uniqueKey);
           
           const bgStyle = isSelected ? "background: #E3F2FD;" : "";
@@ -813,13 +811,13 @@
           return `
           <div id="${domId}" class="result-item" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none; ${bgStyle} ${borderStyle}"
                oncontextmenu="return false;"
-               ontouchstart="startPress(event, 'domId','{uniqueKey}', ${amt})"
+               ontouchstart="startPress(event, '${domId}', '${uniqueKey}', ${amt})"
                ontouchend="endPress(event)"
                ontouchmove="endPress(event)"
-               onmousedown="startPress(event, 'domId','{uniqueKey}', ${amt})"
+               onmousedown="startPress(event, '${domId}', '${uniqueKey}', ${amt})"
                onmouseup="endPress(event)"
                onmouseleave="endPress(event)"
-               onclick="itemClick(event, 'domId','{uniqueKey}', '${safeItemStr}')">
+               onclick="itemClick(event, '${domId}', '${uniqueKey}', '${safeItemStr}')">
             <div style="flex: 1; padding-right: 10px; pointer-events: none;">
               <div class="result-month">📍 ${item.month}</div>
               <div style="font-size: 18px; line-height: 1.4;">
@@ -969,4 +967,4 @@
   </script>
 </body>
 </html>
-
+```eof
