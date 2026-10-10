@@ -86,20 +86,20 @@
       position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       width: 100%; transition: background-color 0.3s;
       display: grid;
-      grid-template-columns: 85px 1fr 85px; /* 左右保留空間，保證中間絕對置中 */
+      grid-template-columns: 85px 1fr 85px; 
       align-items: center;
     }
 
     #headerTitle {
-      grid-column: 2; /* 鎖定在正中間網格 */
+      grid-column: 2; 
       text-align: center;
-      font-size: 22px; /* 稍微縮小字體以適應手機螢幕 */
+      font-size: 22px; 
       font-weight: bold; letter-spacing: 1px;
       white-space: nowrap;
     }
 
     .switch-btn {
-      grid-column: 3; /* 鎖定在最右邊網格 */
+      grid-column: 3; 
       justify-self: end;
       margin-right: 12px;
       background: rgba(255, 255, 255, 0.2);
@@ -148,7 +148,7 @@
     /* 🌟 全域狀態提示 */
     .global-loading { display: none; text-align: center; margin-bottom: 15px; font-weight: bold; color: #E02020; font-size: 16px; }
 
-    /* 🌟 查詢列表 */
+    /* 🌟 查詢列表 (高度 65vh) */
     .result-box { margin-top: 15px; max-height: 65vh; overflow-y: auto; padding-bottom: 80px; }
     .result-item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #34C759; font-size: 18px; transition: 0.1s; }
     .result-item:active { transform: scale(0.98); background: #eef2f5; }
@@ -238,7 +238,7 @@
       
       <button onclick="submitData()">新增帳目</button>
 
-      <!-- 🌟 同步與備份區塊 -->
+      <!-- 🌟 同步與備份區塊 (移至新增頁) -->
       <hr style="border: 0; height: 1px; background: #ddd; margin: 40px 0 20px 0;">
       
       <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #eee;">
@@ -514,7 +514,7 @@
     
     function renderModalList() {
       let html = tempEditingItems.length === 0 ? '<div style="text-align:center; color:#999; padding:10px;">(目前沒有項目)</div>' : '';
-      tempEditingItems.forEach((item, i) => html += `<div class="modal-list-item"><span>${item}</span><span class="delete-btn" onclick="removeModalItem(${i})">❌</span></div>`);
+      tempEditingItems.forEach((item, i) => html += `<div class="modal-list-item"><span>item</span><spanclass="delete-btn"onclick="removeModalItem({i})">❌</span></div>`);
       document.getElementById('modalList').innerHTML = html;
     }
     
@@ -527,9 +527,17 @@
     
     function saveSettingsModal() {
       const finalStr = tempEditingItems.join(',');
-      if (currentEditMode === 'categories') { localStorage.setItem(getStoreKey('myCustomCategories'), finalStr); loadCategories(); } 
-      else { localStorage.setItem(getStoreKey('myCustomTags'), finalStr); loadQuickTags(); }
+      if (currentEditMode === 'categories') { 
+        localStorage.setItem(getStoreKey('myCustomCategories'), finalStr); 
+        loadCategories(); 
+      } else { 
+        localStorage.setItem(getStoreKey('myCustomTags'), finalStr); 
+        loadQuickTags(); 
+      }
       closeSettingsModal();
+      
+      // ✨ 儲存設定後，自動靜默下載一份備份檔到本機
+      exportBackup({ silent: true });
     }
     
     function loadCategories() {
@@ -576,7 +584,7 @@
         if (typeof json !== 'string') throw new Error('無法整理備份資料');
 
         const now = new Date();
-        const timeStamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+        const timeStamp = `now.getFullYear(){String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}String(now.getMinutes()).padStart(2,'0'){String(now.getSeconds()).padStart(2, '0')}`;
         const prefix = currentLedger === 'home' ? '家用雲帳本備份' : '工作室帳本備份';
 
         const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
@@ -585,7 +593,7 @@
         a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
 
         setTimeout(() => URL.revokeObjectURL(url), 30000);
-        if (!silent) alert('✅ 備份檔已成功開始下載！');
+        if (!silent) alert('✅ 備份檔已成功下載到您的裝置！');
         return true;
       } catch (err) {
         if (!silent) alert('❌ 備份匯出失敗：' + (err.message || '未知錯誤'));
@@ -621,23 +629,7 @@
       reader.readAsText(file);
     }
 
-    let lastAutoBackupAt = 0;
-    function autoExportBackup() {
-      const now = Date.now();
-      if (now - lastAutoBackupAt < 5000) return;
-      lastAutoBackupAt = now;
-      
-      const backupData = { 
-        ledgerData: localStorage.getItem(getStoreKey('myLedgerData')) || '[]', 
-        syncInfo: localStorage.getItem(getStoreKey('myLedgerSyncInfo')) || '', 
-        customTags: localStorage.getItem(getStoreKey('myCustomTags')) || defaultTags, 
-        customCategories: localStorage.getItem(getStoreKey('myCustomCategories')) || defaultCategories 
-      };
-      navigator.sendBeacon(apiUrl, JSON.stringify({ action: 'auto_backup', ledger: currentLedger, data: backupData }));
-    }
-
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') autoExportBackup(); });
-    window.addEventListener('pagehide', autoExportBackup);
+    // 💡 已徹底刪除會偷跑背景與發送雲端備份的程式碼 (visibilitychange/pagehide)
 
     // ======== 初始化與頁面切換 ========
     window.onload = function() {
@@ -747,7 +739,7 @@
       for (let i = 0; i < queue.length; i++) {
         let q = queue[i];
         let monthLabel = Array.isArray(q.month) ? (q.month[0] === '1月' ? '上半年' : '下半年') : q.month;
-        document.getElementById('globalLoading').innerText = `⏳ 正在抓取 ${q.year}年 ${monthLabel} (${i + 1}/${queue.length})...`;
+        document.getElementById('globalLoading').innerText = `⏳ 正在抓取 ${q.year}年 monthLabel({i + 1}/${queue.length})...`;
         
         try {
           let res = await fetch(apiUrl, { method: "POST", body: JSON.stringify({ action: "sync_custom", targetYear: q.year, targetMonth: q.month, ledger: currentLedger }) });
@@ -812,7 +804,7 @@
           const domId = `result-item-${index}`;
           const amt = parseFloat(item.amount.toString().replace(/,/g, '')) || 0;
           
-          const uniqueKey = `${item.month}|${item.category}|${item.detail}|${item.amount}`;
+          const uniqueKey = `item.month|{item.category}|item.detail|{item.amount}`;
           const isSelected = selectedItemsMap.has(uniqueKey);
           
           const bgStyle = isSelected ? "background: #E3F2FD;" : "";
@@ -821,13 +813,13 @@
           return `
           <div id="${domId}" class="result-item" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none; ${bgStyle} ${borderStyle}"
                oncontextmenu="return false;"
-               ontouchstart="startPress(event, '${domId}', '${uniqueKey}', ${amt})"
+               ontouchstart="startPress(event, 'domId','{uniqueKey}', ${amt})"
                ontouchend="endPress(event)"
                ontouchmove="endPress(event)"
-               onmousedown="startPress(event, '${domId}', '${uniqueKey}', ${amt})"
+               onmousedown="startPress(event, 'domId','{uniqueKey}', ${amt})"
                onmouseup="endPress(event)"
                onmouseleave="endPress(event)"
-               onclick="itemClick(event, '${domId}', '${uniqueKey}', '${safeItemStr}')">
+               onclick="itemClick(event, 'domId','{uniqueKey}', '${safeItemStr}')">
             <div style="flex: 1; padding-right: 10px; pointer-events: none;">
               <div class="result-month">📍 ${item.month}</div>
               <div style="font-size: 18px; line-height: 1.4;">
@@ -977,3 +969,4 @@
   </script>
 </body>
 </html>
+
